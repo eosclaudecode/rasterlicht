@@ -470,15 +470,15 @@ dialog .lib-grid { margin: 14px 0; max-height: 260px; overflow-y: auto; }
             <div class="control-group">
                 <label for="cols">Spalten</label>
                 <div class="slider-container">
-                    <input type="range" id="cols" min="4" max="140" step="1" value="52" oninput="updateParam('cols', this.value)">
-                    <span class="value-display" id="cols-value">52</span>
+                    <input type="range" id="cols" min="4" max="140" step="1" value="30" oninput="updateParam('cols', this.value)">
+                    <span class="value-display" id="cols-value">30</span>
                 </div>
             </div>
             <div class="control-group">
                 <label for="rows">Zeilen</label>
                 <div class="slider-container">
-                    <input type="range" id="rows" min="4" max="140" step="1" value="52" oninput="updateParam('rows', this.value)">
-                    <span class="value-display" id="rows-value">52</span>
+                    <input type="range" id="rows" min="4" max="140" step="1" value="30" oninput="updateParam('rows', this.value)">
+                    <span class="value-display" id="rows-value">30</span>
                 </div>
             </div>
             <div class="control-group">
@@ -508,10 +508,6 @@ dialog .lib-grid { margin: 14px 0; max-height: 260px; overflow-y: auto; }
                     <input type="range" id="dotMax" min="0.1" max="1.4" step="0.01" value="0.94" oninput="updateParam('dotMax', this.value)">
                     <span class="value-display" id="dotMax-value">0.94</span>
                 </div>
-            </div>
-            <div class="check-group">
-                <input type="checkbox" id="fadeWithLevel" checked onchange="updateFlag('fadeWithLevel', this.checked)">
-                <label for="fadeWithLevel">Deckkraft folgt Helligkeit</label>
             </div>
         </details>
 
@@ -941,7 +937,7 @@ const MAX_LEVELS  = 24;
 
 let params = {
     seed: 12345,
-    cols: 52, rows: 52, levels: 10,
+    cols: 30, rows: 30, levels: 10,
     gap: 0, dotMin: 0.06, dotMax: 0.94,
     profile: 0, symmetry: 0,
     sourceCount: 2, sourceFreq: 2.4, sourceFalloff: 0.35, sourceSpread: 0.65,
@@ -953,7 +949,7 @@ let params = {
     imgScale: 1.0
 };
 
-let flags = { fadeWithLevel: true, standing: false, useImages: true, imgScaleWithLevel: false, imgTint: false };
+let flags = { standing: false, useImages: true, imgScaleWithLevel: false, imgTint: false };
 
 let colors = { bgColor: '#141413', lowColor: '#3b3a54', midColor: '#d97757', highColor: '#faf9f5' };
 
@@ -1175,9 +1171,7 @@ function renderScene(g, w, h, t) {
                 const k = size / Math.max(img.width, img.height);
                 if (flags.imgTint) {
                     const c = rampCache[level - 1];
-                    g.tint(red(c), green(c), blue(c), flags.fadeWithLevel ? 80 + 175 * tt : 255);
-                } else if (flags.fadeWithLevel) {
-                    g.tint(255, 80 + 175 * tt);
+                    g.tint(red(c), green(c), blue(c));
                 } else {
                     g.noTint();
                 }
@@ -1185,9 +1179,7 @@ function renderScene(g, w, h, t) {
             } else {
                 const d = box * (params.dotMin + (params.dotMax - params.dotMin) * tt);
                 if (d <= 0.15) continue;
-                const c = rampCache[level - 1];
-                if (flags.fadeWithLevel) g.fill(red(c), green(c), blue(c), 80 + 175 * tt);
-                else g.fill(c);
+                g.fill(rampCache[level - 1]);
                 g.circle(px, py, d);
             }
         }
