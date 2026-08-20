@@ -1,0 +1,2138 @@
+<title>Rasterlicht</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+/* ── Tokens ───────────────────────────────────────────────────────────── */
+:root {
+    --accent:      #d97757;
+    --accent-h:    #c86641;
+    --accent-2:    #6a9bcc;
+    --accent-3:    #788c5d;
+
+    --page:        #f5f3ee;
+    --page-2:      #faf9f5;
+    --surface:     #ffffff;
+    --surface-2:   #f4f2ec;
+    --ink:         #141413;
+    --ink-2:       #56544e;
+    --muted:       #8f8d85;
+    --line:        #e2e0d6;
+    --shadow:      0 10px 30px rgba(20, 20, 19, .10);
+    --shadow-lg:   0 20px 40px rgba(20, 20, 19, .12);
+    --stage:       #eceae3;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --page:      #121211;
+        --page-2:    #171716;
+        --surface:   #1c1c1a;
+        --surface-2: #232320;
+        --ink:       #f2f0ea;
+        --ink-2:     #c3c0b7;
+        --muted:     #8b887f;
+        --line:      #33322e;
+        --shadow:    0 10px 30px rgba(0, 0, 0, .45);
+        --shadow-lg: 0 20px 40px rgba(0, 0, 0, .55);
+        --stage:     #0e0e0d;
+    }
+}
+
+:root[data-theme="dark"] {
+    --page:      #121211;
+    --page-2:    #171716;
+    --surface:   #1c1c1a;
+    --surface-2: #232320;
+    --ink:       #f2f0ea;
+    --ink-2:     #c3c0b7;
+    --muted:     #8b887f;
+    --line:      #33322e;
+    --shadow:    0 10px 30px rgba(0, 0, 0, .45);
+    --shadow-lg: 0 20px 40px rgba(0, 0, 0, .55);
+    --stage:     #0e0e0d;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Poppins', system-ui, sans-serif;
+    background: var(--page);
+    background-image: linear-gradient(135deg, var(--page-2) 0%, var(--page) 100%);
+    color: var(--ink);
+    min-height: 100vh;
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+}
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+.container { display: flex; min-height: 100vh; padding: 20px; gap: 20px; }
+
+.sidebar {
+    width: 340px;
+    flex-shrink: 0;
+    background: var(--surface);
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.brand { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+.sidebar h1 {
+    font-family: 'Lora', Georgia, serif;
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: .01em;
+}
+
+.sidebar .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+    line-height: 1.45;
+}
+
+.canvas-area { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+
+#canvas-container {
+    width: 100%;
+    max-width: 1000px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    background: var(--stage);
+    line-height: 0;
+    display: flex;
+    justify-content: center;
+}
+
+#canvas-container canvas {
+    display: block;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100%;
+    max-height: calc(100vh - 60px);
+}
+
+.loading { line-height: 1.4; font-size: 16px; color: var(--muted); padding: 90px 0; text-align: center; }
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+details.control-section {
+    border-top: 1px solid var(--line);
+    padding: 14px 0 6px;
+}
+
+details.control-section[open] { padding-bottom: 14px; }
+
+summary {
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    user-select: none;
+}
+
+summary::-webkit-details-marker { display: none; }
+
+summary::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    transition: transform .2s ease;
+}
+
+details[open] > summary::before { transform: scale(1.55); }
+
+details.control-section > *:not(summary) { margin-top: 14px; }
+
+.section-note { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+
+/* ── Controls ─────────────────────────────────────────────────────────── */
+.control-group label,
+.color-group > label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 7px; }
+
+.slider-container { display: flex; align-items: center; gap: 12px; }
+
+.slider-container input[type="range"] {
+    flex: 1;
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px; height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); background: var(--accent-h); }
+
+.slider-container input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+}
+
+.value-display {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 44px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.seg { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 8px; flex-wrap: wrap; }
+
+.seg button {
+    flex: 1 1 auto;
+    min-width: 62px;
+    border: none;
+    background: transparent;
+    color: var(--ink-2);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    padding: 7px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+}
+
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+select, .seed-input, input[type="number"].num {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+}
+
+.seed-input { font-family: 'Courier New', monospace; text-align: center; font-size: 14px; }
+.seed-input:focus, select:focus { border-color: var(--accent); }
+.seed-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.check-group { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.check-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.check-group label { cursor: pointer; }
+
+.color-group > label { font-size: 12px; color: var(--muted); font-weight: 400; }
+.color-picker-container { display: flex; align-items: center; gap: 8px; }
+
+input[type="color"] {
+    width: 34px; height: 34px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    background: none;
+    padding: 2px;
+}
+
+.color-value { font-family: 'Courier New', monospace; font-size: 12px; color: var(--muted); }
+
+.ramp-preview {
+    display: flex;
+    height: 20px;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+}
+
+.ramp-preview div { flex: 1; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-weight: 500;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: background .15s ease, transform .15s ease;
+    width: 100%;
+}
+
+.button:hover { background: var(--accent-h); transform: translateY(-1px); }
+.button:active { transform: translateY(0); }
+.button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.button.secondary { background: var(--accent-2); }
+.button.secondary:hover { background: #5a8bb8; }
+.button.tertiary { background: var(--accent-3); }
+.button.tertiary:hover { background: #6b7b52; }
+.button.ghost { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+.button.ghost:hover { background: var(--line); }
+.button-row { display: flex; gap: 8px; }
+.button-row .button { flex: 1; }
+
+.icon-button {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.icon-button:hover { background: var(--line); }
+
+/* ── Slots & Bibliothek ───────────────────────────────────────────────── */
+.slot-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+
+.slot {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    border: 1px dashed var(--muted);
+    background-color: var(--surface-2);
+    background-size: cover;
+    background-position: center;
+    cursor: pointer;
+    padding: 0;
+    transition: border-color .15s ease;
+}
+
+.slot:hover { border-color: var(--accent); }
+.slot.filled { border-style: solid; border-color: var(--accent-3); }
+
+.slot span {
+    position: absolute;
+    top: 0; left: 0;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    background: var(--surface);
+    color: var(--ink);
+    border-radius: 5px 0 5px 0;
+    padding: 1px 4px;
+}
+
+.lib-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+.lib-item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background-size: cover;
+    background-position: center;
+    background-color: var(--surface-2);
+    cursor: pointer;
+    padding: 0;
+}
+
+.lib-item:hover { border-color: var(--accent); }
+.lib-item.sel { border-color: var(--accent); border-width: 2px; }
+
+.status-chip {
+    font-size: 11.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1.4;
+}
+
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.dot.ok { background: var(--accent-3); }
+.dot.warn { background: var(--accent); }
+
+/* ── Dialog ───────────────────────────────────────────────────────────── */
+dialog {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--ink);
+    padding: 22px;
+    max-width: 460px;
+    width: calc(100% - 40px);
+    box-shadow: var(--shadow-lg);
+}
+
+dialog::backdrop { background: rgba(0, 0, 0, .45); }
+dialog h4 { font-family: 'Lora', serif; font-weight: 500; font-size: 18px; margin-bottom: 12px; }
+dialog .lib-grid { margin: 14px 0; max-height: 260px; overflow-y: auto; }
+
+.progress {
+    height: 5px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress > div { height: 100%; width: 0%; background: var(--accent); transition: width .15s linear; }
+
+@media (max-width: 720px) {
+    .container { flex-direction: column; }
+    .sidebar { width: 100%; max-height: none; }
+}
+</style>
+
+<div class="container">
+    <div class="sidebar">
+        <div class="brand">
+            <div>
+                <h1>Rasterlicht</h1>
+            </div>
+            <button class="icon-button" id="themeBtn" onclick="cycleTheme()" title="Hell / Dunkel / Automatisch">◐</button>
+        </div>
+        <div class="subtitle">Quantisierte Interferenz — ein Wellenfeld, gelesen in Helligkeitsstufen.</div>
+
+        <!-- Seed -->
+        <details class="control-section" open>
+            <summary>Seed</summary>
+            <input type="number" id="seed-input" class="seed-input" value="12345" onchange="updateSeed()">
+            <div class="seed-controls">
+                <button class="button secondary" onclick="previousSeed()">← Prev</button>
+                <button class="button secondary" onclick="nextSeed()">Next →</button>
+            </div>
+            <button class="button tertiary" onclick="randomSeedAndUpdate()">↻ Random</button>
+        </details>
+
+        <!-- Raster -->
+        <details class="control-section" open>
+            <summary>Raster</summary>
+            <div class="control-group">
+                <label for="aspect">Seitenverhältnis</label>
+                <select id="aspect" onchange="setAspect(this.value)">
+                    <option value="1:1">1 : 1 — Quadrat</option>
+                    <option value="5:4">5 : 4 — Querformat</option>
+                    <option value="4:3">4 : 3</option>
+                    <option value="3:2">3 : 2</option>
+                    <option value="16:9">16 : 9 — Breitbild</option>
+                    <option value="2:1">2 : 1 — Panorama</option>
+                    <option value="4:5">4 : 5 — Hochformat</option>
+                    <option value="3:4">3 : 4</option>
+                    <option value="2:3">2 : 3</option>
+                    <option value="9:16">9 : 16 — Story</option>
+                </select>
+            </div>
+            <div class="section-note" id="aspect-note">Vorschau 1200 × 1200</div>
+
+            <div class="control-group">
+                <label for="cols">Spalten</label>
+                <div class="slider-container">
+                    <input type="range" id="cols" min="4" max="140" step="1" value="52" oninput="updateParam('cols', this.value)">
+                    <span class="value-display" id="cols-value">52</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="rows">Zeilen</label>
+                <div class="slider-container">
+                    <input type="range" id="rows" min="4" max="140" step="1" value="52" oninput="updateParam('rows', this.value)">
+                    <span class="value-display" id="rows-value">52</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="levels">Helligkeitsstufen</label>
+                <div class="slider-container">
+                    <input type="range" id="levels" min="2" max="24" step="1" value="10" oninput="updateParam('levels', this.value)">
+                    <span class="value-display" id="levels-value">10</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="gap">Abstand (Zellenluft)</label>
+                <div class="slider-container">
+                    <input type="range" id="gap" min="0" max="0.8" step="0.01" value="0" oninput="updateParam('gap', this.value)">
+                    <span class="value-display" id="gap-value">0</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="dotMin">Punkt min. (Stufe 1)</label>
+                <div class="slider-container">
+                    <input type="range" id="dotMin" min="0" max="1" step="0.01" value="0.06" oninput="updateParam('dotMin', this.value)">
+                    <span class="value-display" id="dotMin-value">0.06</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="dotMax">Punkt max. (höchste Stufe)</label>
+                <div class="slider-container">
+                    <input type="range" id="dotMax" min="0.1" max="1.4" step="0.01" value="0.94" oninput="updateParam('dotMax', this.value)">
+                    <span class="value-display" id="dotMax-value">0.94</span>
+                </div>
+            </div>
+            <div class="check-group">
+                <input type="checkbox" id="fadeWithLevel" checked onchange="updateFlag('fadeWithLevel', this.checked)">
+                <label for="fadeWithLevel">Deckkraft folgt Helligkeit</label>
+            </div>
+        </details>
+
+        <!-- Wellenfeld -->
+        <details class="control-section" open>
+            <summary>Wellenfeld</summary>
+
+            <div class="control-group">
+                <label>Wellenfront</label>
+                <div class="seg" id="modeSeg">
+                    <button data-mode="radial" onclick="setMode('radial')">Radial</button>
+                    <button data-mode="linear" onclick="setMode('linear')">Linear</button>
+                    <button data-mode="mixed" onclick="setMode('mixed')">Gemischt</button>
+                    <button data-mode="concentric" onclick="setMode('concentric')">Zentrisch</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="profile">Wellenprofil</label>
+                <select id="profile" onchange="updateParam('profile', this.value)">
+                    <option value="0">Sinus — weich</option>
+                    <option value="1">Dreieck — linear</option>
+                    <option value="2">Rechteck — harte Kanten</option>
+                    <option value="3">Sägezahn — gerichtet</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="symmetry">Spiegelachsen (Kaleidoskop)</label>
+                <div class="slider-container">
+                    <input type="range" id="symmetry" min="0" max="12" step="1" value="0" oninput="updateParam('symmetry', this.value)">
+                    <span class="value-display" id="symmetry-value">0</span>
+                </div>
+            </div>
+
+            <div id="grp-radial">
+                <div class="control-group">
+                    <label for="sourceCount">Radiale Quellen</label>
+                    <div class="slider-container">
+                        <input type="range" id="sourceCount" min="0" max="6" step="1" value="2" oninput="updateParam('sourceCount', this.value)">
+                        <span class="value-display" id="sourceCount-value">2</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="sourceFreq">Quellen-Frequenz</label>
+                    <div class="slider-container">
+                        <input type="range" id="sourceFreq" min="0.3" max="10" step="0.1" value="2.4" oninput="updateParam('sourceFreq', this.value)">
+                        <span class="value-display" id="sourceFreq-value">2.4</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="sourceFalloff">Quellen-Abfall</label>
+                    <div class="slider-container">
+                        <input type="range" id="sourceFalloff" min="0" max="3" step="0.05" value="0.35" oninput="updateParam('sourceFalloff', this.value)">
+                        <span class="value-display" id="sourceFalloff-value">0.35</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="sourceSpread">Quellen-Streuung</label>
+                    <div class="slider-container">
+                        <input type="range" id="sourceSpread" min="0.1" max="1.6" step="0.05" value="0.65" oninput="updateParam('sourceSpread', this.value)">
+                        <span class="value-display" id="sourceSpread-value">0.65</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="grp-linear">
+                <div class="control-group">
+                    <label for="planeCount">Lineare Fronten</label>
+                    <div class="slider-container">
+                        <input type="range" id="planeCount" min="0" max="4" step="1" value="1" oninput="updateParam('planeCount', this.value)">
+                        <span class="value-display" id="planeCount-value">1</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="planeFreq">Fronten-Frequenz</label>
+                    <div class="slider-container">
+                        <input type="range" id="planeFreq" min="0.3" max="10" step="0.1" value="1.8" oninput="updateParam('planeFreq', this.value)">
+                        <span class="value-display" id="planeFreq-value">1.8</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="planeWeight">Fronten-Gewicht</label>
+                    <div class="slider-container">
+                        <input type="range" id="planeWeight" min="0" max="2" step="0.05" value="0.35" oninput="updateParam('planeWeight', this.value)">
+                        <span class="value-display" id="planeWeight-value">0.35</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="planeAngle">Fronten-Winkel</label>
+                    <div class="slider-container">
+                        <input type="range" id="planeAngle" min="0" max="360" step="1" value="0" oninput="updateParam('planeAngle', this.value)">
+                        <span class="value-display" id="planeAngle-value">0</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="planeFan">Fronten-Fächerung</label>
+                    <div class="slider-container">
+                        <input type="range" id="planeFan" min="0" max="180" step="1" value="90" oninput="updateParam('planeFan', this.value)">
+                        <span class="value-display" id="planeFan-value">90</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="grp-conc">
+                <div class="control-group">
+                    <label for="concWeight">Zentrisch-Gewicht</label>
+                    <div class="slider-container">
+                        <input type="range" id="concWeight" min="0" max="2" step="0.05" value="0.5" oninput="updateParam('concWeight', this.value)">
+                        <span class="value-display" id="concWeight-value">0.5</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="concFreq">Zentrisch-Frequenz</label>
+                    <div class="slider-container">
+                        <input type="range" id="concFreq" min="0.3" max="10" step="0.1" value="2.8" oninput="updateParam('concFreq', this.value)">
+                        <span class="value-display" id="concFreq-value">2.8</span>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label for="spiralArms">Spiralarme</label>
+                    <div class="slider-container">
+                        <input type="range" id="spiralArms" min="0" max="12" step="1" value="0" oninput="updateParam('spiralArms', this.value)">
+                        <span class="value-display" id="spiralArms-value">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="noiseWeight">Noise-Gewicht</label>
+                <div class="slider-container">
+                    <input type="range" id="noiseWeight" min="0" max="1.5" step="0.05" value="0" oninput="updateParam('noiseWeight', this.value)">
+                    <span class="value-display" id="noiseWeight-value">0</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="noiseScale">Noise-Skalierung</label>
+                <div class="slider-container">
+                    <input type="range" id="noiseScale" min="0.2" max="6" step="0.1" value="1.6" oninput="updateParam('noiseScale', this.value)">
+                    <span class="value-display" id="noiseScale-value">1.6</span>
+                </div>
+            </div>
+        </details>
+
+        <!-- Tonwert -->
+        <details class="control-section">
+            <summary>Tonwert</summary>
+            <div class="control-group">
+                <label for="contrast">Kontrast</label>
+                <div class="slider-container">
+                    <input type="range" id="contrast" min="0.2" max="4" step="0.05" value="1.5" oninput="updateParam('contrast', this.value)">
+                    <span class="value-display" id="contrast-value">1.5</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="gamma">Gamma</label>
+                <div class="slider-container">
+                    <input type="range" id="gamma" min="0.3" max="3" step="0.05" value="1" oninput="updateParam('gamma', this.value)">
+                    <span class="value-display" id="gamma-value">1</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="vignette">Vignette</label>
+                <div class="slider-container">
+                    <input type="range" id="vignette" min="0" max="1" step="0.05" value="0.2" oninput="updateParam('vignette', this.value)">
+                    <span class="value-display" id="vignette-value">0.2</span>
+                </div>
+            </div>
+        </details>
+
+        <!-- Bewegung -->
+        <details class="control-section">
+            <summary>Bewegung</summary>
+            <div class="control-group">
+                <label for="speed">Geschwindigkeit</label>
+                <div class="slider-container">
+                    <input type="range" id="speed" min="0" max="2" step="0.01" value="0.35" oninput="updateParam('speed', this.value)">
+                    <span class="value-display" id="speed-value">0.35</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="phase">Phase (Zeitpunkt)</label>
+                <div class="slider-container">
+                    <input type="range" id="phase" min="0" max="100" step="0.1" value="0" oninput="scrubPhase(this.value)">
+                    <span class="value-display" id="phase-value">0.0</span>
+                </div>
+            </div>
+            <button class="button secondary" id="playBtn" onclick="togglePlay()">⏸ Pause</button>
+            <div class="check-group" style="margin-top:14px">
+                <input type="checkbox" id="standing" onchange="updateFlag('standing', this.checked)">
+                <label for="standing">Stehende Welle</label>
+            </div>
+            <div class="section-note">
+                Statt zu wandern, bleibt das Muster an Ort und Stelle: die Knotenlinien stehen still,
+                dazwischen schwingt die Amplitude auf und ab.
+            </div>
+            <div class="control-group">
+                <label for="standingDepth">Schwingungstiefe</label>
+                <div class="slider-container">
+                    <input type="range" id="standingDepth" min="0" max="1" step="0.01" value="1" oninput="updateParam('standingDepth', this.value)">
+                    <span class="value-display" id="standingDepth-value">1</span>
+                </div>
+            </div>
+        </details>
+
+        <!-- Farben -->
+        <details class="control-section">
+            <summary>Farben</summary>
+            <div class="ramp-preview" id="ramp-preview"></div>
+            <div class="color-group">
+                <label for="bgColor">Bildhintergrund</label>
+                <div class="color-picker-container">
+                    <input type="color" id="bgColor" value="#141413" onchange="updateColor('bgColor', this.value)">
+                    <span class="color-value" id="bgColor-value">#141413</span>
+                </div>
+            </div>
+            <div class="color-group">
+                <label for="lowColor">Unterste Stufe</label>
+                <div class="color-picker-container">
+                    <input type="color" id="lowColor" value="#3b3a54" onchange="updateColor('lowColor', this.value)">
+                    <span class="color-value" id="lowColor-value">#3b3a54</span>
+                </div>
+            </div>
+            <div class="color-group">
+                <label for="midColor">Mittelstufe</label>
+                <div class="color-picker-container">
+                    <input type="color" id="midColor" value="#d97757" onchange="updateColor('midColor', this.value)">
+                    <span class="color-value" id="midColor-value">#d97757</span>
+                </div>
+            </div>
+            <div class="color-group">
+                <label for="highColor">Höchste Stufe</label>
+                <div class="color-picker-container">
+                    <input type="color" id="highColor" value="#faf9f5" onchange="updateColor('highColor', this.value)">
+                    <span class="color-value" id="highColor-value">#faf9f5</span>
+                </div>
+            </div>
+            <div class="color-group">
+                <label for="pageBg">Seitenhintergrund</label>
+                <div class="color-picker-container">
+                    <input type="color" id="pageBg" value="#f5f3ee" onchange="setPageBg(this.value)">
+                    <button class="button ghost" onclick="clearPageBg()">Auf Theme zurücksetzen</button>
+                </div>
+            </div>
+        </details>
+
+        <!-- Bilder -->
+        <details class="control-section">
+            <summary>Bilder statt Punkte</summary>
+            <div class="section-note">
+                Ein Bild je Helligkeitsstufe — Slot 1 ist die dunkelste. Die Slot-Anzahl folgt den Helligkeitsstufen.
+                Klick auf einen Slot öffnet die Bibliothek.
+            </div>
+            <div class="slot-grid" id="slot-grid"></div>
+            <div class="check-group">
+                <input type="checkbox" id="useImages" onchange="updateFlag('useImages', this.checked)">
+                <label for="useImages">Bilder verwenden</label>
+            </div>
+            <div class="check-group">
+                <input type="checkbox" id="imgScaleWithLevel" onchange="updateFlag('imgScaleWithLevel', this.checked)">
+                <label for="imgScaleWithLevel">Bildgröße folgt Helligkeit</label>
+            </div>
+            <div class="check-group">
+                <input type="checkbox" id="imgTint" onchange="updateFlag('imgTint', this.checked)">
+                <label for="imgTint">Bilder einfärben</label>
+            </div>
+            <div class="control-group">
+                <label for="imgScale">Bild-Größe</label>
+                <div class="slider-container">
+                    <input type="range" id="imgScale" min="0.2" max="2.5" step="0.05" value="1" oninput="updateParam('imgScale', this.value)">
+                    <span class="value-display" id="imgScale-value">1</span>
+                </div>
+            </div>
+            <button class="button ghost" onclick="clearAllSlots()">Alle Slots leeren</button>
+        </details>
+
+        <!-- Bibliothek -->
+        <details class="control-section">
+            <summary>Bibliothek</summary>
+            <div class="section-note" id="lib-note">
+                Die Bilder liegen als Dateien im Repository und sind für alle gleich.
+                Eigene Bilder lassen sich jederzeit hinzufügen — sie bleiben in dieser Sitzung
+                und verändern nichts für andere.
+            </div>
+            <div class="lib-grid" id="lib-grid"></div>
+            <div class="button-row">
+                <button class="button ghost" id="addBtn" onclick="pickLibraryUpload()">+ Bilder</button>
+                <button class="button ghost" id="zipBtn" onclick="exportLibraryZip()">↓ ZIP</button>
+            </div>
+            <div class="status-chip"><span class="dot" id="lib-dot"></span><span id="lib-status">Lade Bibliothek…</span></div>
+        </details>
+
+        <!-- Admin -->
+        <details class="control-section">
+            <summary>Admin</summary>
+            <div class="section-note">
+                Mit einem GitHub-Token schreibt diese Seite Bilder und Zuordnung direkt ins Repository.
+                Das Token wird nur in diesem Browser gespeichert und nie mitveröffentlicht.
+                Ohne Token bleibt der ZIP-Export der Weg.
+            </div>
+            <div class="control-group">
+                <label for="ghToken">GitHub-Token</label>
+                <input type="password" id="ghToken" class="num" placeholder="github_pat_…" autocomplete="off">
+            </div>
+            <div class="control-group">
+                <label for="ghOwner">Benutzername</label>
+                <input type="text" id="ghOwner" class="num" autocomplete="off">
+            </div>
+            <div class="control-group">
+                <label for="ghRepo">Repository</label>
+                <input type="text" id="ghRepo" class="num" autocomplete="off">
+            </div>
+            <div class="control-group">
+                <label for="ghBranch">Branch</label>
+                <input type="text" id="ghBranch" class="num" value="main" autocomplete="off">
+            </div>
+            <div class="button-row">
+                <button class="button ghost" onclick="saveToken()">Token merken</button>
+                <button class="button ghost" onclick="forgetToken()">Vergessen</button>
+            </div>
+            <button class="button" id="pubBtn" onclick="publishToRepo()">↑ Ins Repository veröffentlichen</button>
+            <div class="progress" id="pubProgress" hidden><div></div></div>
+            <div class="status-chip"><span class="dot" id="pub-dot"></span><span id="pub-status">Kein Token hinterlegt</span></div>
+        </details>
+
+        <!-- Export -->
+        <details class="control-section" id="exportSection">
+            <summary>Export</summary>
+
+            <div class="control-group">
+                <label for="exportRes">Einzelbild — längste Kante</label>
+                <select id="exportRes" onchange="updateExportNote()">
+                    <option value="1200">1200 px</option>
+                    <option value="2000" selected>2000 px</option>
+                    <option value="3000">3000 px</option>
+                    <option value="4000">4000 px</option>
+                    <option value="6000">6000 px</option>
+                </select>
+            </div>
+            <button class="button tertiary" id="pngBtn" onclick="exportFrame()">↓ Einzelbild als PNG</button>
+
+            <div class="control-group">
+                <label for="vidRes">Video — längste Kante</label>
+                <select id="vidRes" onchange="updateExportNote()">
+                    <option value="720">720 px</option>
+                    <option value="1080" selected>1080 px</option>
+                    <option value="1440">1440 px</option>
+                    <option value="2160">2160 px</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="vidFormat">Videoformat</label>
+                <select id="vidFormat" onchange="updateExportNote()">
+                    <option value="mp4">MP4 (H.264)</option>
+                    <option value="mov">MOV (H.264)</option>
+                    <option value="webm">WebM (VP9)</option>
+                    <option value="png">PNG-Sequenz als ZIP</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="vidFrames">Frames</label>
+                <div class="slider-container">
+                    <input type="range" id="vidFrames" min="12" max="600" step="12" value="120" oninput="document.getElementById('vidFrames-value').textContent = this.value; updateExportNote();">
+                    <span class="value-display" id="vidFrames-value">120</span>
+                </div>
+            </div>
+            <div class="control-group">
+                <label for="vidFps">Bilder pro Sekunde</label>
+                <select id="vidFps" onchange="updateExportNote()">
+                    <option value="12">12 fps</option>
+                    <option value="24">24 fps</option>
+                    <option value="30" selected>30 fps</option>
+                    <option value="60">60 fps</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="vidStep">Phasen-Schritt pro Frame</label>
+                <div class="slider-container">
+                    <input type="range" id="vidStep" min="0.002" max="0.2" step="0.002" value="0.02" oninput="document.getElementById('vidStep-value').textContent = this.value">
+                    <span class="value-display" id="vidStep-value">0.02</span>
+                </div>
+            </div>
+            <button class="button tertiary" id="vidBtn" onclick="exportVideo()">↓ Video speichern</button>
+            <div class="progress" id="exportProgress" hidden><div></div></div>
+            <div class="section-note" id="export-note"></div>
+        </details>
+
+        <!-- Actions -->
+        <details class="control-section" open>
+            <summary>Aktionen</summary>
+            <div class="button-row">
+                <button class="button" onclick="regenerate()">Regenerate</button>
+                <button class="button ghost" onclick="resetParameters()">Reset</button>
+            </div>
+        </details>
+    </div>
+
+    <div class="canvas-area">
+        <div id="canvas-container">
+            <div class="loading">Initialisiere Wellenfeld…</div>
+        </div>
+    </div>
+</div>
+
+<!-- Bibliotheks-Auswahl -->
+<dialog id="pickerDialog">
+    <h4 id="pickerTitle">Bild für Stufe</h4>
+    <div class="section-note">Ein Bild aus der Bibliothek wählen oder ein neues hochladen.</div>
+    <div class="lib-grid" id="picker-grid"></div>
+    <div class="button-row">
+        <button class="button ghost" onclick="pickerUpload()">+ Hochladen</button>
+        <button class="button ghost" onclick="pickerClear()">Slot leeren</button>
+        <button class="button" onclick="document.getElementById('pickerDialog').close()">Fertig</button>
+    </div>
+</dialog>
+
+<input type="file" id="fileInput" accept="image/*" multiple hidden>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   RASTERLICHT — quantisierte Interferenz
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const MAX_SOURCES = 6;
+const MAX_PLANES  = 4;
+const MAX_LEVELS  = 24;
+
+let params = {
+    seed: 12345,
+    cols: 52, rows: 52, levels: 10,
+    gap: 0, dotMin: 0.06, dotMax: 0.94,
+    profile: 0, symmetry: 0,
+    sourceCount: 2, sourceFreq: 2.4, sourceFalloff: 0.35, sourceSpread: 0.65,
+    planeCount: 1, planeFreq: 1.8, planeWeight: 0.35, planeAngle: 0, planeFan: 90,
+    concWeight: 0.5, concFreq: 2.8, spiralArms: 0,
+    noiseWeight: 0, noiseScale: 1.6,
+    contrast: 1.5, gamma: 1.0, vignette: 0.2,
+    speed: 0.35, standingDepth: 1.0,
+    imgScale: 1.0
+};
+
+let flags = { fadeWithLevel: true, standing: false, useImages: false, imgScaleWithLevel: false, imgTint: false };
+
+let colors = { bgColor: '#141413', lowColor: '#3b3a54', midColor: '#d97757', highColor: '#faf9f5' };
+
+const defaultParams = {...params};
+const defaultFlags  = {...flags};
+const defaultColors = {...colors};
+
+let mode = 'mixed';
+let sources = [], planes = [];
+let phase = 0, playing = true;
+let rampCache = [];
+let bgCol;
+let exporting = false;
+
+/* Bibliothek: id → {id, name, file, url, img}  |  slots: Index (Stufe-1) → id */
+let library = [];
+let slots = new Array(MAX_LEVELS).fill(null);
+let pickerTarget = -1;
+let pendingFiles = null; // 'library' | slot index
+
+/* ── Wellenprofile ────────────────────────────────────────────────────── */
+function waveform(x) {
+    const f = x - Math.floor(x);
+    switch (params.profile | 0) {
+        case 1:  return 4 * Math.abs(f - 0.5) - 1;          // Dreieck
+        case 2:  return f < 0.5 ? 1 : -1;                   // Rechteck
+        case 3:  return 2 * f - 1;                          // Sägezahn
+        default: return Math.sin(TWO_PI * f);               // Sinus
+    }
+}
+
+/* ── p5 ───────────────────────────────────────────────────────────────── */
+function setup() {
+    const cnv = createCanvas(1200, 1200);
+    cnv.parent('canvas-container');
+    pixelDensity(1);
+    initializeSystem();
+    buildSlots();
+    const l = document.querySelector('.loading');
+    if (l) l.remove();
+    initLibrary();
+}
+
+function initializeSystem() {
+    randomSeed(params.seed);
+    noiseSeed(params.seed);
+
+    // Quellen paarweise punktsymmetrisch — ruhige, komponierte Interferenz.
+    sources = [];
+    for (let p = 0; p < MAX_SOURCES / 2; p++) {
+        const a = random(TWO_PI), r = random(0.55, 1.0);
+        const phi = random(TWO_PI);
+        const rate = random(0.75, 1.15) * (random() < 0.25 ? -1 : 1);
+        sources.push({ ux:  Math.cos(a) * r, uy:  Math.sin(a) * r, phi, rate });
+        sources.push({ ux: -Math.cos(a) * r, uy: -Math.sin(a) * r, phi, rate });
+    }
+
+    planes = [];
+    for (let i = 0; i < MAX_PLANES; i++) {
+        planes.push({
+            off: random(-1, 1),
+            phi: random(TWO_PI),
+            rate: random(0.6, 1.3) * (random() < 0.3 ? -1 : 1),
+            fMul: random(0.86, 1.18)
+        });
+    }
+
+    phase = 0;
+    syncPhaseSlider();
+    rebuildRamp();
+}
+
+function regenerate() { initializeSystem(); }
+
+function rebuildRamp() {
+    bgCol = color(colors.bgColor);
+    const lowCol  = color(colors.lowColor);
+    const midCol  = color(colors.midColor);
+    const highCol = color(colors.highColor);
+
+    rampCache = [];
+    const n = Math.max(2, Math.round(params.levels));
+    for (let i = 0; i < n; i++) {
+        const t = i / (n - 1);
+        const e = t * t * (3 - 2 * t) * 0.35 + t * 0.65;
+        rampCache.push(e < 0.5 ? lerpColor(lowCol, midCol, e * 2)
+                               : lerpColor(midCol, highCol, (e - 0.5) * 2));
+    }
+    updateRampPreview();
+}
+
+/* Skalares Feld an normalisierter Position (nx, ny) ∈ [-1, 1] */
+/* Ein Wellenbeitrag.
+   Laufende Welle:  f(x - vt)          — das Muster wandert.
+   Stehende Welle:  f(x) · cos(2π·vt)  — die Knoten bleiben stehen,
+                                          nur die Amplitude atmet. */
+function contrib(spatial, phaseOff, rate, t) {
+    if (flags.standing) {
+        const d = params.standingDepth;
+        return waveform(spatial + phaseOff) * (1 - d + d * Math.cos(TWO_PI * t * rate));
+    }
+    return waveform(spatial - t * rate + phaseOff);
+}
+
+function fieldValue(nx, ny, t) {
+    // Kaleidoskop: Winkel in Sektoren falten
+    const sym = Math.round(params.symmetry);
+    if (sym >= 2) {
+        const r = Math.sqrt(nx * nx + ny * ny);
+        let a = Math.atan2(ny, nx);
+        const seg = TWO_PI / sym;
+        a = ((a % seg) + seg) % seg;
+        a = Math.abs(a - seg / 2);
+        nx = r * Math.cos(a);
+        ny = r * Math.sin(a);
+    }
+
+    let sum = 0, wsum = 0;
+
+    const nSrc = Math.round(params.sourceCount);
+    for (let i = 0; i < nSrc; i++) {
+        const s = sources[i];
+        const dx = nx - s.ux * params.sourceSpread;
+        const dy = ny - s.uy * params.sourceSpread;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const amp = 1 / (1 + params.sourceFalloff * d * 2.2);
+        sum += amp * contrib(d * params.sourceFreq, s.phi / TWO_PI, s.rate, t);
+        wsum += amp;
+    }
+
+    const nPl = Math.round(params.planeCount);
+    if (params.planeWeight > 0 && nPl > 0) {
+        const base = params.planeAngle * Math.PI / 180;
+        const fan  = params.planeFan  * Math.PI / 180;
+        for (let i = 0; i < nPl; i++) {
+            const p = planes[i];
+            const ang = base + (nPl > 1 ? (i / nPl) * fan : 0) + p.off * fan * 0.12;
+            const proj = nx * Math.cos(ang) + ny * Math.sin(ang);
+            sum += params.planeWeight *
+                contrib(proj * params.planeFreq * p.fMul, p.phi / TWO_PI, p.rate, t);
+            wsum += params.planeWeight;
+        }
+    }
+
+    if (params.concWeight > 0) {
+        const r = Math.sqrt(nx * nx + ny * ny);
+        const a = Math.atan2(ny, nx);
+        sum += params.concWeight *
+            contrib(r * params.concFreq, params.spiralArms * a / TWO_PI, 0.9, t);
+        wsum += params.concWeight;
+    }
+
+    if (params.noiseWeight > 0) {
+        const n = noise((nx + 1.5) * params.noiseScale, (ny + 1.5) * params.noiseScale, t * 0.12);
+        sum += params.noiseWeight * (n * 2 - 1) * 1.6;
+        wsum += params.noiseWeight;
+    }
+
+    return wsum <= 0 ? 0 : sum / wsum;
+}
+
+/* Rendert die Szene in ein beliebiges Ziel: window (Hauptcanvas) oder p5.Graphics */
+function renderScene(g, w, h, t) {
+    g.background(bgCol);
+
+    const cols   = Math.round(params.cols);
+    const rows   = Math.round(params.rows);
+    const levels = Math.round(params.levels);
+    const cell   = Math.min(w / cols, h / rows);
+    const box    = cell * (1 - params.gap);
+    const offX   = (w - cell * cols) / 2;
+    const offY   = (h - cell * rows) / 2;
+
+    const halfC = (cols - 1) / 2, halfR = (rows - 1) / 2;
+    const norm  = Math.max(halfC, halfR) || 1;
+
+    g.noStroke();
+    g.ellipseMode(CENTER);
+    g.imageMode(CENTER);
+
+    // Bild je Stufe einmal auflösen statt pro Zelle
+    const levelImgs = new Array(levels).fill(null);
+    if (flags.useImages) {
+        for (let i = 0; i < levels; i++) {
+            const e = libById(slots[i]);
+            levelImgs[i] = e && e.img ? e.img : null;
+        }
+    }
+
+    for (let gy = 0; gy < rows; gy++) {
+        for (let gx = 0; gx < cols; gx++) {
+            const nx = (gx - halfC) / norm;
+            const ny = (gy - halfR) / norm;
+
+            let b = (fieldValue(nx, ny, t) + 1) * 0.5;
+            b = 0.5 + (b - 0.5) * params.contrast;
+            b = b < 0 ? 0 : (b > 1 ? 1 : b);
+            if (params.gamma !== 1) b = Math.pow(b, params.gamma);
+            if (params.vignette > 0) {
+                const r = Math.sqrt(nx * nx + ny * ny) / 1.4142;
+                b *= 1 - params.vignette * r * r;
+            }
+
+            let level = Math.floor(b * levels) + 1;
+            if (level < 1) level = 1;
+            if (level > levels) level = levels;
+
+            const tt = levels > 1 ? (level - 1) / (levels - 1) : 1;
+            const px = offX + gx * cell + cell / 2;
+            const py = offY + gy * cell + cell / 2;
+
+            const img = levelImgs[level - 1];
+
+            if (img) {
+                let size = box * params.imgScale;
+                if (flags.imgScaleWithLevel) {
+                    size *= params.dotMin + (params.dotMax - params.dotMin) * tt;
+                }
+                const k = size / Math.max(img.width, img.height);
+                if (flags.imgTint) {
+                    const c = rampCache[level - 1];
+                    g.tint(red(c), green(c), blue(c), flags.fadeWithLevel ? 80 + 175 * tt : 255);
+                } else if (flags.fadeWithLevel) {
+                    g.tint(255, 80 + 175 * tt);
+                } else {
+                    g.noTint();
+                }
+                g.image(img, px, py, img.width * k, img.height * k);
+            } else {
+                const d = box * (params.dotMin + (params.dotMax - params.dotMin) * tt);
+                if (d <= 0.15) continue;
+                const c = rampCache[level - 1];
+                if (flags.fadeWithLevel) g.fill(red(c), green(c), blue(c), 80 + 175 * tt);
+                else g.fill(c);
+                g.circle(px, py, d);
+            }
+        }
+    }
+    g.noTint();
+}
+
+function draw() {
+    if (exporting) return;
+    renderScene(window, width, height, phase);
+    if (playing && params.speed > 0) {
+        phase += params.speed * 0.01;
+        if (phase > 100) phase -= 100;
+        syncPhaseSlider();
+    }
+}
+
+/* ── Steuerung ────────────────────────────────────────────────────────── */
+function updateParam(name, value) {
+    params[name] = parseFloat(value);
+    const el = document.getElementById(name + '-value');
+    if (el) el.textContent = value;
+    if (name === 'levels') { rebuildRamp(); buildSlots(); }
+}
+
+function updateFlag(name, checked) { flags[name] = checked; }
+
+function updateColor(name, value) {
+    colors[name] = value;
+    const el = document.getElementById(name + '-value');
+    if (el) el.textContent = value;
+    rebuildRamp();
+}
+
+function updateRampPreview() {
+    const box = document.getElementById('ramp-preview');
+    if (!box || !rampCache.length) return;
+    box.innerHTML = '';
+    rampCache.forEach(c => {
+        const d = document.createElement('div');
+        d.style.background = 'rgb(' + Math.round(red(c)) + ',' + Math.round(green(c)) + ',' + Math.round(blue(c)) + ')';
+        box.appendChild(d);
+    });
+}
+
+function setMode(m) {
+    mode = m;
+    document.querySelectorAll('#modeSeg button').forEach(b =>
+        b.setAttribute('aria-pressed', b.dataset.mode === m ? 'true' : 'false'));
+
+    const presets = {
+        radial:     { sourceCount: 2, planeWeight: 0,    concWeight: 0 },
+        linear:     { sourceCount: 0, planeWeight: 1,    concWeight: 0, planeCount: 3 },
+        mixed:      { sourceCount: 2, planeWeight: 0.35, concWeight: 0.5, planeCount: 1 },
+        concentric: { sourceCount: 0, planeWeight: 0,    concWeight: 1,   concFreq: 3.2 }
+    }[m];
+
+    Object.entries(presets).forEach(([k, v]) => {
+        params[k] = v;
+        const el = document.getElementById(k);
+        if (el) el.value = v;
+        const vd = document.getElementById(k + '-value');
+        if (vd) vd.textContent = v;
+    });
+
+    document.getElementById('grp-radial').style.display = (m === 'radial' || m === 'mixed') ? '' : 'none';
+    document.getElementById('grp-linear').style.display = (m === 'linear' || m === 'mixed') ? '' : 'none';
+    document.getElementById('grp-conc').style.display   = (m === 'concentric' || m === 'mixed') ? '' : 'none';
+}
+
+function togglePlay() {
+    playing = !playing;
+    document.getElementById('playBtn').textContent = playing ? '⏸ Pause' : '▶ Play';
+}
+
+function scrubPhase(value) {
+    phase = parseFloat(value);
+    document.getElementById('phase-value').textContent = phase.toFixed(1);
+}
+
+function syncPhaseSlider() {
+    const s = document.getElementById('phase');
+    if (s) s.value = phase;
+    const v = document.getElementById('phase-value');
+    if (v) v.textContent = phase.toFixed(1);
+}
+
+/* ── Theme & Seitenhintergrund ────────────────────────────────────────── */
+const THEMES = ['auto', 'light', 'dark'];
+const THEME_ICON = { auto: '◐', light: '☀', dark: '☾' };
+
+function applyTheme(t) {
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('themeBtn').textContent = THEME_ICON[t];
+    try { localStorage.setItem('rl-theme', t); } catch (e) {}
+}
+
+function cycleTheme() {
+    let cur = 'auto';
+    try { cur = localStorage.getItem('rl-theme') || 'auto'; } catch (e) {}
+    applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
+}
+
+function setPageBg(hex) {
+    document.body.style.background = hex;
+    try { localStorage.setItem('rl-pagebg', hex); } catch (e) {}
+}
+
+function clearPageBg() {
+    document.body.style.background = '';
+    try { localStorage.removeItem('rl-pagebg'); } catch (e) {}
+}
+
+/* ── Bibliothek ───────────────────────────────────────────────────────── */
+function libById(id) { return id ? library.find(e => e.id === id) : null; }
+
+function setLibStatus(text, kind) {
+    document.getElementById('lib-status').textContent = text;
+    const dot = document.getElementById('lib-dot');
+    dot.className = 'dot' + (kind ? ' ' + kind : '');
+}
+
+/* ── Bibliothek: Dateien aus dem Repository + lokale Zugaben ──────────── */
+const MANIFEST = 'images.json';
+const IMG_DIR  = 'img/';
+
+let baseline = [];      // Dateipfade, die laut Manifest im Repo liegen
+let manifestSha = null; // SHA von images.json, für Updates via GitHub-API
+
+function setLibStatus(text, kind) {
+    document.getElementById('lib-status').textContent = text;
+    document.getElementById('lib-dot').className = 'dot' + (kind ? ' ' + kind : '');
+}
+
+function setPubStatus(text, kind) {
+    document.getElementById('pub-status').textContent = text;
+    document.getElementById('pub-dot').className = 'dot' + (kind ? ' ' + kind : '');
+}
+
+async function initLibrary() {
+    renderLibrary();
+    buildSlots();
+    document.getElementById('useImages').checked = flags.useImages;
+
+    try {
+        if (location.protocol === 'file:') throw new Error('lokal');
+        const res = await fetch(MANIFEST + '?v=' + Date.now());
+        if (!res.ok) throw new Error('kein Manifest');
+        const data = await res.json();
+
+        library = (data.images || []).map(e => ({
+            id: e.id, name: e.name || e.id, file: e.file,
+            url: e.file, img: null, local: false
+        }));
+        baseline = library.map(e => e.file);
+
+        const asg = (data.assignments || {})[String(Math.round(params.levels))];
+        if (Array.isArray(asg)) {
+            slots = new Array(MAX_LEVELS).fill(null);
+            asg.forEach((id, i) => { slots[i] = id || null; });
+        }
+        if (data.flags) {
+            Object.assign(flags, data.flags);
+            document.getElementById('useImages').checked = flags.useImages;
+            document.getElementById('imgScaleWithLevel').checked = flags.imgScaleWithLevel;
+            document.getElementById('imgTint').checked = flags.imgTint;
+        }
+
+        await Promise.all(library.map(loadEntryImage));
+        renderLibrary();
+        buildSlots();
+        setLibStatus(library.length + (library.length === 1 ? ' Bild' : ' Bilder') + ' aus dem Repository', 'ok');
+    } catch (e) {
+        setLibStatus('Keine Bibliothek im Repository — eigene Bilder bleiben lokal', null);
+    }
+}
+
+function loadEntryImage(entry) {
+    return new Promise(resolve => {
+        if (entry.img) return resolve(entry);
+        loadImage(entry.url, img => { entry.img = img; resolve(entry); }, () => resolve(entry));
+    });
+}
+
+/* Verkleinern und komprimieren — kleine Dateien, schnelle Ladezeit. */
+function processFile(file) {
+    return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const im = new Image();
+        im.onload = () => {
+            const MAX = 640;
+            const k = Math.min(1, MAX / Math.max(im.width, im.height));
+            const w = Math.max(1, Math.round(im.width * k));
+            const h = Math.max(1, Math.round(im.height * k));
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(im, 0, 0, w, h);
+            URL.revokeObjectURL(url);
+
+            const px = ctx.getImageData(0, 0, w, h).data;
+            let hasAlpha = false;
+            for (let i = 3; i < px.length; i += 4) { if (px[i] < 250) { hasAlpha = true; break; } }
+
+            const type = hasAlpha ? 'image/png' : 'image/webp';
+            c.toBlob(blob => {
+                if (!blob) return resolve(null);
+                const id  = 'i' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+                const ext = hasAlpha ? 'png' : 'webp';
+                resolve({
+                    id, name: file.name, file: IMG_DIR + id + '.' + ext,
+                    blob, url: URL.createObjectURL(blob), img: null, local: true
+                });
+            }, type, 0.85);
+        };
+        im.onerror = () => resolve(null);
+        im.src = url;
+    });
+}
+
+async function addFiles(fileList, assignTo) {
+    const files = Array.from(fileList).slice(0, 40);
+    for (let i = 0; i < files.length; i++) {
+        setLibStatus('Verarbeite ' + (i + 1) + ' / ' + files.length + '…', null);
+        const entry = await processFile(files[i]);
+        if (!entry) continue;
+        await loadEntryImage(entry);
+        library.push(entry);
+        if (typeof assignTo === 'number' && assignTo >= 0) { slots[assignTo] = entry.id; assignTo = -1; }
+    }
+    if (assignTo === 'auto') {
+        const levels = Math.round(params.levels);
+        for (let i = 0; i < levels; i++) if (!slots[i] && library[i]) slots[i] = library[i].id;
+    }
+    if (!flags.useImages && library.length) {
+        flags.useImages = true;
+        document.getElementById('useImages').checked = true;
+    }
+    renderLibrary();
+    buildSlots();
+    reportLibraryState();
+}
+
+function reportLibraryState() {
+    const added = library.filter(e => e.local).length;
+    const gone  = baseline.filter(f => !library.some(e => e.file === f)).length;
+    if (added || gone) {
+        const parts = [];
+        if (added) parts.push(added + ' neu');
+        if (gone)  parts.push(gone + ' entfernt');
+        setLibStatus(library.length + ' Bilder — ' + parts.join(', ') + ', noch nicht veröffentlicht', 'warn');
+    } else {
+        setLibStatus(library.length + (library.length === 1 ? ' Bild' : ' Bilder') + ' aus dem Repository', 'ok');
+    }
+}
+
+function renderLibrary() {
+    const grid = document.getElementById('lib-grid');
+    grid.innerHTML = '';
+    library.forEach(e => {
+        const b = document.createElement('button');
+        b.className = 'lib-item' + (e.local ? ' sel' : '');
+        b.style.backgroundImage = 'url(' + e.url + ')';
+        b.title = e.name + (e.local ? ' (nur lokal)' : '') + ' — Klick: entfernen';
+        b.onclick = () => removeFromLibrary(e.id);
+        grid.appendChild(b);
+    });
+}
+
+function removeFromLibrary(id) {
+    library = library.filter(e => e.id !== id);
+    slots = slots.map(s => (s === id ? null : s));
+    renderLibrary();
+    buildSlots();
+    reportLibraryState();
+}
+
+/* Manifest im Format, das die Seite beim Laden erwartet */
+function buildManifest() {
+    const assignments = {};
+    const levels = Math.round(params.levels);
+    assignments[String(levels)] = slots.slice(0, levels).map(s => s || '');
+    return JSON.stringify({
+        version: 1,
+        images: library.map(e => ({ id: e.id, name: e.name, file: e.file })),
+        assignments,
+        flags: {
+            useImages: flags.useImages,
+            imgScaleWithLevel: flags.imgScaleWithLevel,
+            imgTint: flags.imgTint
+        }
+    }, null, 2);
+}
+
+/* ── ZIP-Export (ohne Kompression — die Bilder sind bereits komprimiert) ── */
+const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        t[n] = c >>> 0;
+    }
+    return t;
+})();
+
+function crc32(bytes) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function makeZip(entries) {
+    const enc = new TextEncoder();
+    const chunks = [], central = [];
+    let offset = 0;
+
+    const u16 = v => [v & 0xFF, (v >>> 8) & 0xFF];
+    const u32 = v => [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF];
+
+    for (const { name, bytes } of entries) {
+        const nameBytes = enc.encode(name);
+        const crc = crc32(bytes);
+        const local = new Uint8Array([
+            ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+            ...u32(crc), ...u32(bytes.length), ...u32(bytes.length),
+            ...u16(nameBytes.length), ...u16(0)
+        ]);
+        chunks.push(local, nameBytes, bytes);
+
+        central.push(new Uint8Array([
+            ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+            ...u32(crc), ...u32(bytes.length), ...u32(bytes.length),
+            ...u16(nameBytes.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0),
+            ...u32(offset), ...nameBytes
+        ]));
+        offset += local.length + nameBytes.length + bytes.length;
+    }
+
+    const centralSize = central.reduce((a, c) => a + c.length, 0);
+    const end = new Uint8Array([
+        ...u32(0x06054b50), ...u16(0), ...u16(0),
+        ...u16(entries.length), ...u16(entries.length),
+        ...u32(centralSize), ...u32(offset), ...u16(0)
+    ]);
+    return new Blob([...chunks, ...central, end], { type: 'application/zip' });
+}
+
+async function entryBytes(entry) {
+    const blob = entry.blob || await (await fetch(entry.url)).blob();
+    return new Uint8Array(await blob.arrayBuffer());
+}
+
+async function exportLibraryZip() {
+    const btn = document.getElementById('zipBtn');
+    btn.disabled = true;
+    setLibStatus('Packe ZIP…', null);
+    try {
+        const entries = [{ name: MANIFEST, bytes: new TextEncoder().encode(buildManifest()) }];
+        for (const e of library) entries.push({ name: e.file, bytes: await entryBytes(e) });
+        await offerFile('rasterlicht-bibliothek.zip', makeZip(entries));
+        setLibStatus('ZIP fertig — Inhalt ins Repository legen', 'ok');
+    } catch (err) {
+        setLibStatus('ZIP fehlgeschlagen: ' + (err && err.message ? err.message : err), 'warn');
+    }
+    btn.disabled = false;
+}
+
+/* ── Admin: direkt ins GitHub-Repository schreiben ────────────────────── */
+function ghFields() {
+    return {
+        token:  document.getElementById('ghToken').value.trim(),
+        owner:  document.getElementById('ghOwner').value.trim(),
+        repo:   document.getElementById('ghRepo').value.trim(),
+        branch: document.getElementById('ghBranch').value.trim() || 'main'
+    };
+}
+
+function saveToken() {
+    const f = ghFields();
+    if (!f.token) { setPubStatus('Kein Token eingegeben', 'warn'); return; }
+    try {
+        localStorage.setItem('rl-gh', JSON.stringify(f));
+        setPubStatus('Token in diesem Browser gespeichert', 'ok');
+    } catch (e) {
+        setPubStatus('Browser erlaubt kein Speichern — Token gilt nur jetzt', 'warn');
+    }
+}
+
+function forgetToken() {
+    try { localStorage.removeItem('rl-gh'); } catch (e) {}
+    document.getElementById('ghToken').value = '';
+    setPubStatus('Token gelöscht', null);
+}
+
+function restoreToken() {
+    // Benutzername und Repository aus der Adresse ableiten: name.github.io/repo/
+    const host = location.hostname;
+    if (host.endsWith('.github.io')) {
+        document.getElementById('ghOwner').value = host.replace('.github.io', '');
+        const seg = location.pathname.split('/').filter(Boolean);
+        if (seg.length) document.getElementById('ghRepo').value = seg[0];
+    }
+    try {
+        const saved = JSON.parse(localStorage.getItem('rl-gh') || 'null');
+        if (saved) {
+            document.getElementById('ghToken').value  = saved.token  || '';
+            if (saved.owner)  document.getElementById('ghOwner').value  = saved.owner;
+            if (saved.repo)   document.getElementById('ghRepo').value   = saved.repo;
+            if (saved.branch) document.getElementById('ghBranch').value = saved.branch;
+            setPubStatus('Token hinterlegt — bereit zum Veröffentlichen', 'ok');
+            return;
+        }
+    } catch (e) {}
+    setPubStatus('Kein Token hinterlegt — ZIP-Export nutzen', null);
+}
+
+async function gh(path, options, f) {
+    const res = await fetch('https://api.github.com/repos/' + f.owner + '/' + f.repo + path, {
+        ...options,
+        headers: {
+            'Authorization': 'Bearer ' + f.token,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            ...(options && options.body ? { 'Content-Type': 'application/json' } : {})
+        }
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+        let msg = res.status + '';
+        try { msg = (await res.json()).message || msg; } catch (e) {}
+        if (res.status === 401) msg = 'Token ungültig oder abgelaufen';
+        if (res.status === 403) msg = 'Token darf hier nicht schreiben';
+        if (res.status === 409) msg = 'Branch stimmt nicht — heißt er wirklich so?';
+        throw new Error(msg);
+    }
+    return res.status === 204 ? {} : res.json();
+}
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split(',')[1]);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+    });
+}
+
+async function publishToRepo() {
+    const f = ghFields();
+    if (!f.token || !f.owner || !f.repo) {
+        setPubStatus('Token, Benutzername und Repository ausfüllen', 'warn');
+        return;
+    }
+
+    const btn = document.getElementById('pubBtn');
+    const bar = document.getElementById('pubProgress');
+    btn.disabled = true;
+    bar.hidden = false;
+    const step = (done, total, text) => {
+        bar.firstElementChild.style.width = (total ? done / total * 100 : 0) + '%';
+        setPubStatus(text, null);
+    };
+
+    try {
+        step(0, 1, 'Prüfe Repository…');
+        const listing = await gh('/contents/' + IMG_DIR.replace(/\/$/, '') + '?ref=' + f.branch, {}, f);
+        const shaByPath = {};
+        if (Array.isArray(listing)) listing.forEach(x => { shaByPath[x.path] = x.sha; });
+        const manifestInfo = await gh('/contents/' + MANIFEST + '?ref=' + f.branch, {}, f);
+        if (manifestInfo && manifestInfo.sha) manifestSha = manifestInfo.sha;
+
+        const uploads = library.filter(e => e.local);
+        const removals = Object.keys(shaByPath).filter(p => !library.some(e => e.file === p));
+        const total = uploads.length + removals.length + 1;
+        let done = 0;
+
+        for (const e of uploads) {
+            step(done, total, 'Lade ' + e.name + '…');
+            await gh('/contents/' + e.file, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    message: 'Rasterlicht: Bild ' + e.name,
+                    content: await blobToBase64(e.blob),
+                    branch: f.branch,
+                    ...(shaByPath[e.file] ? { sha: shaByPath[e.file] } : {})
+                })
+            }, f);
+            done++;
+        }
+
+        for (const path of removals) {
+            step(done, total, 'Entferne ' + path + '…');
+            await gh('/contents/' + path, {
+                method: 'DELETE',
+                body: JSON.stringify({
+                    message: 'Rasterlicht: Bild entfernt',
+                    sha: shaByPath[path],
+                    branch: f.branch
+                })
+            }, f);
+            done++;
+        }
+
+        step(done, total, 'Schreibe Manifest…');
+        const manifestB64 = btoa(unescape(encodeURIComponent(buildManifest())));
+        await gh('/contents/' + MANIFEST, {
+            method: 'PUT',
+            body: JSON.stringify({
+                message: 'Rasterlicht: Bibliothek aktualisiert',
+                content: manifestB64,
+                branch: f.branch,
+                ...(manifestSha ? { sha: manifestSha } : {})
+            })
+        }, f);
+
+        library.forEach(e => { e.local = false; });
+        baseline = library.map(e => e.file);
+        manifestSha = null;
+        renderLibrary();
+        reportLibraryState();
+        setPubStatus('Veröffentlicht — in etwa einer Minute live', 'ok');
+    } catch (err) {
+        const raw = (err && err.message) ? err.message : String(err);
+        const msg = /Failed to fetch|NetworkError|Load failed/i.test(raw)
+            ? 'Keine Verbindung zu GitHub — Internet und Token prüfen'
+            : raw;
+        setPubStatus('Fehlgeschlagen: ' + msg, 'warn');
+    }
+
+    bar.hidden = true;
+    bar.firstElementChild.style.width = '0%';
+    btn.disabled = false;
+}
+
+/* ── Slots ────────────────────────────────────────────────────────────── */
+function buildSlots() {
+    const grid = document.getElementById('slot-grid');
+    const levels = Math.round(params.levels);
+    grid.innerHTML = '';
+    for (let i = 0; i < levels; i++) {
+        const b = document.createElement('button');
+        b.className = 'slot';
+        const entry = libById(slots[i]);
+        if (entry) { b.classList.add('filled'); b.style.backgroundImage = 'url(' + entry.url + ')'; }
+        b.innerHTML = '<span>' + (i + 1) + '</span>';
+        b.title = 'Helligkeitsstufe ' + (i + 1);
+        b.onclick = () => openPicker(i);
+        grid.appendChild(b);
+    }
+}
+
+function clearAllSlots() {
+    slots = new Array(MAX_LEVELS).fill(null);
+    buildSlots();
+}
+
+function openPicker(index) {
+    pickerTarget = index;
+    document.getElementById('pickerTitle').textContent = 'Bild für Stufe ' + (index + 1);
+    const grid = document.getElementById('picker-grid');
+    grid.innerHTML = '';
+    library.forEach(e => {
+        const b = document.createElement('button');
+        b.className = 'lib-item' + (slots[index] === e.id ? ' sel' : '');
+        b.style.backgroundImage = 'url(' + e.url + ')';
+        b.title = e.name;
+        b.onclick = () => {
+            slots[index] = e.id;
+            buildSlots();
+            document.getElementById('pickerDialog').close();
+        };
+        grid.appendChild(b);
+    });
+    document.getElementById('pickerDialog').showModal();
+}
+
+function pickerClear() {
+    if (pickerTarget >= 0) { slots[pickerTarget] = null; buildSlots(); }
+    document.getElementById('pickerDialog').close();
+}
+
+function pickerUpload() {
+    pendingFiles = pickerTarget;
+    document.getElementById('pickerDialog').close();
+    document.getElementById('fileInput').click();
+}
+
+function pickLibraryUpload() {
+    pendingFiles = 'auto';
+    document.getElementById('fileInput').click();
+}
+
+/* ── Seitenverhältnis ─────────────────────────────────────────────────── */
+const ASPECTS = {
+    '1:1': [1, 1],   '5:4': [5, 4],  '4:3': [4, 3],  '3:2': [3, 2],
+    '16:9': [16, 9], '2:1': [2, 1],  '4:5': [4, 5],  '3:4': [3, 4],
+    '2:3': [2, 3],   '9:16': [9, 16]
+};
+let aspectKey = '1:1';
+
+/* Maße bei gegebener langer Kante — beide Seiten gerade, sonst mag kein Encoder sie. */
+function aspectSize(longEdge) {
+    const [aw, ah] = ASPECTS[aspectKey] || [1, 1];
+    const w = aw >= ah ? longEdge : Math.round(longEdge * aw / ah);
+    const h = ah >= aw ? longEdge : Math.round(longEdge * ah / aw);
+    return [w - (w % 2), h - (h % 2)];
+}
+
+function setAspect(key) {
+    if (!ASPECTS[key]) return;
+    aspectKey = key;
+    const [w, h] = aspectSize(1200);
+    resizeCanvas(w, h);
+
+    // Zeilen dem Format anpassen, damit die Zellen quadratisch bleiben und das Bild füllen
+    const rows = Math.max(4, Math.min(140, Math.round(params.cols * h / w)));
+    params.rows = rows;
+    document.getElementById('rows').value = rows;
+    document.getElementById('rows-value').textContent = rows;
+    document.getElementById('aspect-note').textContent = 'Vorschau ' + w + ' × ' + h;
+    updateExportNote();
+}
+
+function updateExportNote() {
+    const note = document.getElementById('export-note');
+    if (!note) return;
+    const [pw, ph] = aspectSize(parseInt(document.getElementById('exportRes').value));
+    const [vw, vh] = aspectSize(parseInt(document.getElementById('vidRes').value));
+    const frames = parseInt(document.getElementById('vidFrames').value);
+    const fps    = parseInt(document.getElementById('vidFps').value);
+    const fmt    = document.getElementById('vidFormat').value;
+    const secs   = (frames / fps).toFixed(1);
+
+    let extra = '';
+    if (fmt === 'png') extra = ' · ' + frames + ' Einzelbilder im ZIP';
+    else if (videoSupport && !videoSupport.h264 && fmt !== 'webm')
+        extra = ' · H.264 kann dieser Browser nicht — bitte WebM oder PNG-Sequenz';
+
+    note.textContent = 'PNG ' + pw + ' × ' + ph + '  ·  Video ' + vw + ' × ' + vh +
+                       ', ' + secs + ' s' + extra;
+}
+
+/* ── Export ───────────────────────────────────────────────────────────── */
+async function offerFile(filename, blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function renderOffscreen(w, h, t) {
+    const g = createGraphics(w, h);
+    g.pixelDensity(1);
+    renderScene(g, w, h, t);
+    return g;
+}
+
+function graphicsToBlob(g, type) {
+    return new Promise(res => g.elt.toBlob(res, type || 'image/png'));
+}
+
+async function exportFrame() {
+    const btn = document.getElementById('pngBtn');
+    const note = document.getElementById('export-note');
+    btn.disabled = true;
+    const [w, h] = aspectSize(parseInt(document.getElementById('exportRes').value));
+    note.textContent = 'Rendere ' + w + ' × ' + h + '…';
+    await new Promise(r => setTimeout(r, 30));
+    try {
+        const g = renderOffscreen(w, h, phase);
+        const blob = await graphicsToBlob(g);
+        g.remove();
+        await offerFile('rasterlicht-' + params.seed + '-p' + phase.toFixed(1) + '.png', blob);
+        note.textContent = 'PNG gespeichert — ' + w + ' × ' + h;
+    } catch (err) {
+        note.textContent = 'Export fehlgeschlagen: ' + (err && err.message ? err.message : err);
+    }
+    btn.disabled = false;
+}
+
+/* ── Welches Videoformat kann dieser Browser wirklich? ────────────────────
+   isTypeSupported('video/mp4') sagt in manchen Browsern ja und liefert dann
+   VP9 im MP4-Container — eine Datei, die Schnittprogramme nicht öffnen.
+   Deshalb einmal drei Frames aufnehmen und im Container nachsehen, was
+   tatsächlich drinsteckt.                                                  */
+let videoSupport = null;
+
+function sniffCodec(bytes) {
+    const head = bytes.subarray(0, Math.min(bytes.length, 200000));
+    const find = tag => {
+        const t = [tag.charCodeAt(0), tag.charCodeAt(1), tag.charCodeAt(2), tag.charCodeAt(3)];
+        outer: for (let i = 0; i < head.length - 4; i++) {
+            for (let k = 0; k < 4; k++) if (head[i + k] !== t[k]) continue outer;
+            return true;
+        }
+        return false;
+    };
+    if (find('avc1') || find('avc3')) return 'h264';
+    if (find('hvc1') || find('hev1')) return 'h265';
+    if (find('vp09') || find('vp08')) return 'vp9';
+    if (find('av01')) return 'av1';
+    return 'unbekannt';
+}
+
+function recordProbe(mime) {
+    return new Promise((resolve, reject) => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const ctx = c.getContext('2d');
+        const stream = c.captureStream(0);
+        const track = stream.getVideoTracks()[0];
+        let rec;
+        try { rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 1e6 }); }
+        catch (e) { return reject(e); }
+        const chunks = [];
+        rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        rec.onstop = () => resolve(new Blob(chunks, { type: mime }));
+        rec.onerror = reject;
+        rec.start();
+        let i = 0;
+        const tick = () => {
+            ctx.fillStyle = i % 2 ? '#fff' : '#000';
+            ctx.fillRect(0, 0, 64, 64);
+            track.requestFrame();
+            if (++i < 4) setTimeout(tick, 50); else setTimeout(() => rec.stop(), 80);
+        };
+        tick();
+    });
+}
+
+async function probeVideoSupport() {
+    if (videoSupport) return videoSupport;
+    const result = { h264: null, webm: null };
+
+    if (window.MediaRecorder) {
+        const mp4Candidates = [
+            'video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1.4d002a',
+            'video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1', 'video/mp4'
+        ];
+        for (const mime of mp4Candidates) {
+            if (!MediaRecorder.isTypeSupported(mime)) continue;
+            try {
+                const blob = await recordProbe(mime);
+                const codec = sniffCodec(new Uint8Array(await blob.arrayBuffer()));
+                if (codec === 'h264' || codec === 'h265') { result.h264 = mime; break; }
+            } catch (e) { /* nächster Kandidat */ }
+        }
+        result.webm = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+            .find(t => MediaRecorder.isTypeSupported(t)) || null;
+    }
+
+    videoSupport = result;
+    const sel = document.getElementById('vidFormat');
+    if (!result.h264) {
+        [...sel.options].forEach(o => {
+            if (o.value === 'mp4' || o.value === 'mov') {
+                o.disabled = true;
+                o.textContent = o.textContent.replace(' (H.264)', ' — in diesem Browser nicht möglich');
+            }
+        });
+        if (sel.value === 'mp4' || sel.value === 'mov') sel.value = result.webm ? 'webm' : 'png';
+    }
+    updateExportNote();
+    return result;
+}
+
+async function exportVideo() {
+    const fmt = document.getElementById('vidFormat').value;
+    if (fmt === 'png') return exportFrameSequence();
+
+    const btn  = document.getElementById('vidBtn');
+    const bar  = document.getElementById('exportProgress');
+    const note = document.getElementById('export-note');
+
+    note.textContent = 'Prüfe Videoformate…';
+    const sup = await probeVideoSupport();
+    const wantH264 = (fmt === 'mp4' || fmt === 'mov');
+    const mime = wantH264 ? sup.h264 : sup.webm;
+    if (!mime) {
+        note.textContent = wantH264
+            ? 'Dieser Browser kann kein H.264 — bitte WebM oder PNG-Sequenz wählen.'
+            : 'Dieser Browser kann kein WebM aufzeichnen.';
+        return;
+    }
+
+    const [w, h]  = aspectSize(parseInt(document.getElementById('vidRes').value));
+    const frames  = parseInt(document.getElementById('vidFrames').value);
+    const fps     = parseInt(document.getElementById('vidFps').value);
+    const step    = parseFloat(document.getElementById('vidStep').value);
+    const ext     = fmt === 'webm' ? 'webm' : fmt;
+
+    btn.disabled = true;
+    bar.hidden = false;
+    exporting = true;
+    const wasPlaying = playing;
+    playing = false;
+
+    const g = createGraphics(w, h);
+    g.pixelDensity(1);
+
+    try {
+        const stream = g.elt.captureStream(0);
+        const track  = stream.getVideoTracks()[0];
+        const rec = new MediaRecorder(stream, {
+            mimeType: mime,
+            videoBitsPerSecond: Math.min(40e6, Math.round(w * h * fps * 0.15))
+        });
+        const chunks = [];
+        rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+        const done = new Promise(res => { rec.onstop = res; });
+        rec.start();
+
+        const start = phase;
+        const interval = 1000 / fps;
+        for (let i = 0; i < frames; i++) {
+            const t0 = performance.now();
+            renderScene(g, w, h, start + i * step);
+            track.requestFrame();
+            bar.firstElementChild.style.width = ((i + 1) / frames * 100) + '%';
+            note.textContent = 'Frame ' + (i + 1) + ' / ' + frames;
+            const wait = interval - (performance.now() - t0);
+            await new Promise(r => setTimeout(r, wait > 0 ? wait : 0));
+        }
+
+        rec.stop();
+        await done;
+        const blob = new Blob(chunks, { type: mime });
+        const mb = blob.size / 1048576;
+        await offerFile('rasterlicht-' + params.seed + '-' + frames + 'f.' + ext, blob);
+        note.textContent = ext.toUpperCase() + ' gespeichert — ' + w + ' × ' + h + ', ' + mb.toFixed(1) + ' MB';
+    } catch (err) {
+        note.textContent = 'Video-Export fehlgeschlagen: ' + (err && err.message ? err.message : err);
+    }
+
+    g.remove();
+    bar.hidden = true;
+    bar.firstElementChild.style.width = '0%';
+    exporting = false;
+    playing = wasPlaying;
+    btn.disabled = false;
+}
+
+/* Verlustfreie Alternative: nummerierte Einzelbilder, in jedem Schnittprogramm
+   als Sequenz importierbar — unabhängig davon, welche Codecs der Browser kann. */
+async function exportFrameSequence() {
+    const btn  = document.getElementById('vidBtn');
+    const bar  = document.getElementById('exportProgress');
+    const note = document.getElementById('export-note');
+
+    const [w, h] = aspectSize(parseInt(document.getElementById('vidRes').value));
+    const frames = parseInt(document.getElementById('vidFrames').value);
+    const step   = parseFloat(document.getElementById('vidStep').value);
+
+    btn.disabled = true;
+    bar.hidden = false;
+    exporting = true;
+    const wasPlaying = playing;
+    playing = false;
+
+    const g = createGraphics(w, h);
+    g.pixelDensity(1);
+
+    try {
+        const entries = [];
+        const start = phase;
+        for (let i = 0; i < frames; i++) {
+            renderScene(g, w, h, start + i * step);
+            const blob = await graphicsToBlob(g);
+            entries.push({
+                name: 'frame-' + String(i + 1).padStart(4, '0') + '.png',
+                bytes: new Uint8Array(await blob.arrayBuffer())
+            });
+            bar.firstElementChild.style.width = ((i + 1) / frames * 100) + '%';
+            note.textContent = 'Frame ' + (i + 1) + ' / ' + frames;
+            if (i % 8 === 0) await new Promise(r => setTimeout(r, 0));
+        }
+        const zip = makeZip(entries);
+        await offerFile('rasterlicht-' + params.seed + '-' + frames + 'f-png.zip', zip);
+        note.textContent = frames + ' Einzelbilder gespeichert — ' + w + ' × ' + h +
+                           ', ' + (zip.size / 1048576).toFixed(1) + ' MB';
+    } catch (err) {
+        note.textContent = 'Sequenz-Export fehlgeschlagen: ' + (err && err.message ? err.message : err);
+    }
+
+    g.remove();
+    bar.hidden = true;
+    bar.firstElementChild.style.width = '0%';
+    exporting = false;
+    playing = wasPlaying;
+    btn.disabled = false;
+}
+
+/* ── Seed ─────────────────────────────────────────────────────────────── */
+function updateSeedDisplay() { document.getElementById('seed-input').value = params.seed; }
+
+function updateSeed() {
+    const n = parseInt(document.getElementById('seed-input').value);
+    if (n && n > 0) { params.seed = n; initializeSystem(); } else updateSeedDisplay();
+}
+
+function previousSeed() { params.seed = Math.max(1, params.seed - 1); updateSeedDisplay(); initializeSystem(); }
+function nextSeed()     { params.seed += 1; updateSeedDisplay(); initializeSystem(); }
+function randomSeedAndUpdate() {
+    params.seed = Math.floor(Math.random() * 999999) + 1;
+    updateSeedDisplay();
+    initializeSystem();
+}
+
+function resetParameters() {
+    params = {...defaultParams};
+    flags  = {...defaultFlags};
+    colors = {...defaultColors};
+
+    Object.keys(params).forEach(k => {
+        const el = document.getElementById(k);
+        if (el) el.value = params[k];
+        const v = document.getElementById(k + '-value');
+        if (v) v.textContent = params[k];
+    });
+    Object.keys(flags).forEach(k => {
+        const el = document.getElementById(k);
+        if (el) el.checked = flags[k];
+    });
+    Object.keys(colors).forEach(k => {
+        const el = document.getElementById(k);
+        if (el) el.value = colors[k];
+        const v = document.getElementById(k + '-value');
+        if (v) v.textContent = colors[k];
+    });
+
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ Pause';
+    document.getElementById('aspect').value = '1:1';
+    setAspect('1:1');
+    setMode('mixed');
+    updateSeedDisplay();
+    updateExportNote();
+    initializeSystem();
+    buildSlots();
+}
+
+/* ── Init ─────────────────────────────────────────────────────────────── */
+(function initUI() {
+    let t = 'auto', bg = null;
+    try { t = localStorage.getItem('rl-theme') || 'auto'; bg = localStorage.getItem('rl-pagebg'); } catch (e) {}
+    applyTheme(t);
+    if (bg) { document.body.style.background = bg; document.getElementById('pageBg').value = bg; }
+
+    setMode('mixed');
+    updateSeedDisplay();
+
+    document.getElementById('fileInput').addEventListener('change', async e => {
+        if (e.target.files.length) await addFiles(e.target.files, pendingFiles);
+        pendingFiles = null;
+        e.target.value = '';
+    });
+
+    restoreToken();
+    updateExportNote();
+    // Codec-Prüfung gleich beim Laden, damit die Formatauswahl von Anfang an stimmt
+    setTimeout(() => { probeVideoSupport().catch(() => {}); }, 400);
+})();
+</script>
