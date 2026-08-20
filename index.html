@@ -365,6 +365,23 @@ input[type="color"] {
 .lib-item:hover { border-color: var(--accent); }
 .lib-item.sel { border-color: var(--accent); border-width: 2px; }
 
+.lib-item.missing {
+    border-style: dashed;
+    border-color: var(--accent);
+    background-image: none !important;
+}
+
+.lib-item.missing::after {
+    content: '!';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    font-weight: 600;
+}
+
 .status-chip {
     font-size: 11.5px;
     color: var(--muted);
@@ -746,12 +763,12 @@ dialog .lib-grid { margin: 14px 0; max-height: 260px; overflow-y: auto; }
             <summary>Bilder statt Punkte</summary>
             <div class="section-note">
                 Ein Bild je Helligkeitsstufe — Slot 1 ist die dunkelste. Die Slot-Anzahl folgt den Helligkeitsstufen.
-                Klick auf einen Slot öffnet die Bibliothek.
+                Klick auf einen Slot öffnet die Bibliothek. Stufen ohne Bild fallen auf Punkte zurück.
             </div>
             <div class="slot-grid" id="slot-grid"></div>
             <div class="check-group">
-                <input type="checkbox" id="useImages" onchange="updateFlag('useImages', this.checked)">
-                <label for="useImages">Bilder verwenden</label>
+                <input type="checkbox" id="useImages" checked onchange="updateFlag('useImages', this.checked)">
+                <label for="useImages">Bilder verwenden — sonst Punkte</label>
             </div>
             <div class="check-group">
                 <input type="checkbox" id="imgScaleWithLevel" onchange="updateFlag('imgScaleWithLevel', this.checked)">
@@ -936,7 +953,7 @@ let params = {
     imgScale: 1.0
 };
 
-let flags = { fadeWithLevel: true, standing: false, useImages: false, imgScaleWithLevel: false, imgTint: false };
+let flags = { fadeWithLevel: true, standing: false, useImages: true, imgScaleWithLevel: false, imgTint: false };
 
 let colors = { bgColor: '#141413', lowColor: '#3b3a54', midColor: '#d97757', highColor: '#faf9f5' };
 
@@ -1345,10 +1362,32 @@ async function initLibrary() {
         await Promise.all(library.map(loadEntryImage));
         renderLibrary();
         buildSlots();
-        setLibStatus(library.length + (library.length === 1 ? ' Bild' : ' Bilder') + ' aus dem Repository', 'ok');
+        reportLoadResult();
     } catch (e) {
-        setLibStatus('Keine Bibliothek im Repository — eigene Bilder bleiben lokal', null);
+        const url = new URL(MANIFEST, location.href).href;
+        setLibStatus('images.json nicht gefunden — erwartet unter ' + url, 'warn');
+        console.warn('Rasterlicht: ' + MANIFEST + ' konnte nicht geladen werden.', e);
     }
+}
+
+function reportLoadResult() {
+    const failed  = library.filter(e => e.error);
+    const renamed = library.filter(e => e.resolvedAs);
+
+    if (!failed.length) {
+        let msg = library.length + (library.length === 1 ? ' Bild' : ' Bilder') + ' aus dem Repository';
+        if (renamed.length) {
+            msg += ' — ' + renamed.length + ' mit abweichender Dateiendung gefunden';
+            console.warn('Rasterlicht: Endung weicht vom Manifest ab, z. B. ' + renamed[0].resolvedAs);
+        }
+        setLibStatus(msg, 'ok');
+        return;
+    }
+
+    const first = failed[0];
+    setLibStatus(failed.length + ' von ' + library.length + ' Bildern fehlen — ' +
+                 first.file + ' ' + first.error, 'warn');
+    console.warn('Rasterlicht: nicht ladbar:', failed.map(e => e.file + ' (' + e.error + ')'));
 }
 
 /* Zuordnung für eine bestimmte Stufenzahl übernehmen, falls hinterlegt. */
@@ -1360,11 +1399,52 @@ function applyAssignment(levels) {
     return true;
 }
 
-function loadEntryImage(entry) {
+/* GitHub Pages unterscheidet Groß- und Kleinschreibung. Schlägt der Pfad aus dem
+   Manifest fehl, werden die üblichen Schreibweisen der Endung durchprobiert —
+   und die gefundene wird gemeldet, statt still zu scheitern.                    */
+function extVariants(path) {
+    const dot = path.lastIndexOf('.');
+    if (dot < 0) return [path];
+    const base = path.slice(0, dot), ext = path.slice(dot + 1);
+    let cands = [ext.toUpperCase(), ext.toLowerCase()];
+    if (/^jpe?g$/i.test(ext)) cands = cands.concat(['jpg', 'JPG', 'jpeg', 'JPEG']);
+    else cands = cands.concat(['png', 'PNG', 'webp', 'WEBP']);
+    return [...new Set(cands)].map(e => base + '.' + e).filter(u => u !== path);
+}
+
+function tryLoad(url) {
     return new Promise(resolve => {
-        if (entry.img) return resolve(entry);
-        loadImage(entry.url, img => { entry.img = img; resolve(entry); }, () => resolve(entry));
+        loadImage(url, img => resolve(img), () => resolve(null));
     });
+}
+
+async function loadEntryImage(entry) {
+    if (entry.img) return entry;
+
+    entry.img = await tryLoad(entry.url);
+    if (entry.img) return entry;
+
+    if (entry.local) { entry.error = 'Datei konnte nicht gelesen werden'; return entry; }
+
+    // Warum ging es nicht? Statuscode holen, das erspart Rätselraten.
+    let status = null;
+    try { status = (await fetch(entry.url, { method: 'HEAD' })).status; } catch (e) { status = 'offline'; }
+
+    if (status === 404) {
+        for (const alt of extVariants(entry.url)) {
+            const img = await tryLoad(alt);
+            if (img) {
+                entry.img = img;
+                entry.resolvedAs = alt;
+                entry.url = alt;
+                return entry;
+            }
+        }
+    }
+    entry.error = status === 404 ? 'nicht gefunden (404)'
+                : status === 'offline' ? 'keine Verbindung'
+                : 'Ladefehler (' + status + ')';
+    return entry;
 }
 
 /* Verkleinern und komprimieren — kleine Dateien, schnelle Ladezeit. */
@@ -1444,9 +1524,9 @@ function renderLibrary() {
     grid.innerHTML = '';
     library.forEach(e => {
         const b = document.createElement('button');
-        b.className = 'lib-item' + (e.local ? ' sel' : '');
-        b.style.backgroundImage = 'url(' + e.url + ')';
-        b.title = e.name + (e.local ? ' (nur lokal)' : '') + ' — Klick: entfernen';
+        b.className = 'lib-item' + (e.local ? ' sel' : '') + (e.error ? ' missing' : '');
+        if (!e.error) b.style.backgroundImage = 'url(' + e.url + ')';
+        b.title = e.name + (e.error ? ' — ' + e.error : e.local ? ' (nur lokal)' : '') + ' — Klick: entfernen';
         b.onclick = () => removeFromLibrary(e.id);
         grid.appendChild(b);
     });
