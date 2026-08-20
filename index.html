@@ -1193,7 +1193,11 @@ function updateParam(name, value) {
     params[name] = parseFloat(value);
     const el = document.getElementById(name + '-value');
     if (el) el.textContent = value;
-    if (name === 'levels') { rebuildRamp(); buildSlots(); }
+    if (name === 'levels') {
+        rebuildRamp();
+        applyAssignment(Math.round(params.levels));
+        buildSlots();
+    }
 }
 
 function updateFlag(name, checked) { flags[name] = checked; }
@@ -1299,6 +1303,7 @@ const MANIFEST = 'images.json';
 const IMG_DIR  = 'img/';
 
 let baseline = [];      // Dateipfade, die laut Manifest im Repo liegen
+let allAssignments = {}; // Zuordnungen je Stufenzahl, wie im Manifest hinterlegt
 let manifestSha = null; // SHA von images.json, für Updates via GitHub-API
 
 function setLibStatus(text, kind) {
@@ -1328,11 +1333,8 @@ async function initLibrary() {
         }));
         baseline = library.map(e => e.file);
 
-        const asg = (data.assignments || {})[String(Math.round(params.levels))];
-        if (Array.isArray(asg)) {
-            slots = new Array(MAX_LEVELS).fill(null);
-            asg.forEach((id, i) => { slots[i] = id || null; });
-        }
+        allAssignments = data.assignments || {};
+        applyAssignment(Math.round(params.levels));
         if (data.flags) {
             Object.assign(flags, data.flags);
             document.getElementById('useImages').checked = flags.useImages;
@@ -1347,6 +1349,15 @@ async function initLibrary() {
     } catch (e) {
         setLibStatus('Keine Bibliothek im Repository — eigene Bilder bleiben lokal', null);
     }
+}
+
+/* Zuordnung für eine bestimmte Stufenzahl übernehmen, falls hinterlegt. */
+function applyAssignment(levels) {
+    const asg = allAssignments[String(levels)];
+    if (!Array.isArray(asg)) return false;
+    slots = new Array(MAX_LEVELS).fill(null);
+    asg.forEach((id, i) => { slots[i] = id || null; });
+    return true;
 }
 
 function loadEntryImage(entry) {
@@ -1451,9 +1462,11 @@ function removeFromLibrary(id) {
 
 /* Manifest im Format, das die Seite beim Laden erwartet */
 function buildManifest() {
-    const assignments = {};
+    // Bereits hinterlegte Zuordnungen anderer Stufenzahlen bleiben erhalten
+    const assignments = { ...allAssignments };
     const levels = Math.round(params.levels);
     assignments[String(levels)] = slots.slice(0, levels).map(s => s || '');
+    allAssignments = assignments;
     return JSON.stringify({
         version: 1,
         images: library.map(e => ({ id: e.id, name: e.name, file: e.file })),
