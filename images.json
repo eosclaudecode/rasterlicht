@@ -1,0 +1,527 @@
+{
+  "version": 1,
+  "images": [
+    {
+      "id": "solar-1",
+      "name": "solar-1.jpg",
+      "file": "img/solar-1.jpg"
+    },
+    {
+      "id": "solar-2",
+      "name": "solar-2.jpg",
+      "file": "img/solar-2.jpg"
+    },
+    {
+      "id": "solar-3",
+      "name": "solar-3.jpg",
+      "file": "img/solar-3.jpg"
+    },
+    {
+      "id": "solar-4",
+      "name": "solar-4.jpg",
+      "file": "img/solar-4.jpg"
+    },
+    {
+      "id": "solar-5",
+      "name": "solar-5.jpg",
+      "file": "img/solar-5.jpg"
+    },
+    {
+      "id": "solar-6",
+      "name": "solar-6.jpg",
+      "file": "img/solar-6.jpg"
+    },
+    {
+      "id": "solar-7",
+      "name": "solar-7.jpg",
+      "file": "img/solar-7.jpg"
+    },
+    {
+      "id": "solar-8",
+      "name": "solar-8.jpg",
+      "file": "img/solar-8.jpg"
+    },
+    {
+      "id": "solar-9",
+      "name": "solar-9.jpg",
+      "file": "img/solar-9.jpg"
+    },
+    {
+      "id": "solar-10",
+      "name": "solar-10.jpg",
+      "file": "img/solar-10.jpg"
+    },
+    {
+      "id": "solar-11",
+      "name": "solar-11.jpg",
+      "file": "img/solar-11.jpg"
+    },
+    {
+      "id": "solar-12",
+      "name": "solar-12.jpg",
+      "file": "img/solar-12.jpg"
+    },
+    {
+      "id": "solar-13",
+      "name": "solar-13.jpg",
+      "file": "img/solar-13.jpg"
+    },
+    {
+      "id": "solar-14",
+      "name": "solar-14.jpg",
+      "file": "img/solar-14.jpg"
+    },
+    {
+      "id": "solar-15",
+      "name": "solar-15.jpg",
+      "file": "img/solar-15.jpg"
+    },
+    {
+      "id": "solar-16",
+      "name": "solar-16.jpg",
+      "file": "img/solar-16.jpg"
+    },
+    {
+      "id": "solar-17",
+      "name": "solar-17.jpg",
+      "file": "img/solar-17.jpg"
+    },
+    {
+      "id": "solar-18",
+      "name": "solar-18.jpg",
+      "file": "img/solar-18.jpg"
+    },
+    {
+      "id": "solar-19",
+      "name": "solar-19.jpg",
+      "file": "img/solar-19.jpg"
+    },
+    {
+      "id": "solar-20",
+      "name": "solar-20.jpg",
+      "file": "img/solar-20.jpg"
+    },
+    {
+      "id": "solar-21",
+      "name": "solar-21.jpg",
+      "file": "img/solar-21.jpg"
+    },
+    {
+      "id": "solar-22",
+      "name": "solar-22.jpg",
+      "file": "img/solar-22.jpg"
+    },
+    {
+      "id": "solar-23",
+      "name": "solar-23.jpg",
+      "file": "img/solar-23.jpg"
+    },
+    {
+      "id": "solar-24",
+      "name": "solar-24.jpg",
+      "file": "img/solar-24.jpg"
+    },
+    {
+      "id": "solar-25",
+      "name": "solar-25.jpg",
+      "file": "img/solar-25.jpg"
+    },
+    {
+      "id": "solar-26",
+      "name": "solar-26.jpg",
+      "file": "img/solar-26.jpg"
+    },
+    {
+      "id": "solar-27",
+      "name": "solar-27.jpg",
+      "file": "img/solar-27.jpg"
+    },
+    {
+      "id": "solar-28",
+      "name": "solar-28.jpg",
+      "file": "img/solar-28.jpg"
+    },
+    {
+      "id": "solar-29",
+      "name": "solar-29.jpg",
+      "file": "img/solar-29.jpg"
+    },
+    {
+      "id": "solar-30",
+      "name": "solar-30.jpg",
+      "file": "img/solar-30.jpg"
+    },
+    {
+      "id": "solar-31",
+      "name": "solar-31.jpg",
+      "file": "img/solar-31.jpg"
+    },
+    {
+      "id": "solar-32",
+      "name": "solar-32.jpg",
+      "file": "img/solar-32.jpg"
+    },
+    {
+      "id": "solar-33",
+      "name": "solar-33.jpg",
+      "file": "img/solar-33.jpg"
+    },
+    {
+      "id": "solar-34",
+      "name": "solar-34.jpg",
+      "file": "img/solar-34.jpg"
+    }
+  ],
+  "assignments": {
+    "2": [
+      "solar-1",
+      "solar-34"
+    ],
+    "3": [
+      "solar-1",
+      "solar-17",
+      "solar-34"
+    ],
+    "4": [
+      "solar-1",
+      "solar-12",
+      "solar-23",
+      "solar-34"
+    ],
+    "5": [
+      "solar-1",
+      "solar-9",
+      "solar-17",
+      "solar-26",
+      "solar-34"
+    ],
+    "6": [
+      "solar-1",
+      "solar-8",
+      "solar-14",
+      "solar-21",
+      "solar-27",
+      "solar-34"
+    ],
+    "7": [
+      "solar-1",
+      "solar-7",
+      "solar-12",
+      "solar-17",
+      "solar-23",
+      "solar-29",
+      "solar-34"
+    ],
+    "8": [
+      "solar-1",
+      "solar-6",
+      "solar-10",
+      "solar-15",
+      "solar-20",
+      "solar-25",
+      "solar-29",
+      "solar-34"
+    ],
+    "9": [
+      "solar-1",
+      "solar-5",
+      "solar-9",
+      "solar-13",
+      "solar-17",
+      "solar-22",
+      "solar-26",
+      "solar-30",
+      "solar-34"
+    ],
+    "10": [
+      "solar-1",
+      "solar-5",
+      "solar-8",
+      "solar-12",
+      "solar-16",
+      "solar-19",
+      "solar-23",
+      "solar-27",
+      "solar-30",
+      "solar-34"
+    ],
+    "11": [
+      "solar-1",
+      "solar-4",
+      "solar-8",
+      "solar-11",
+      "solar-14",
+      "solar-17",
+      "solar-21",
+      "solar-24",
+      "solar-27",
+      "solar-31",
+      "solar-34"
+    ],
+    "12": [
+      "solar-1",
+      "solar-4",
+      "solar-7",
+      "solar-10",
+      "solar-13",
+      "solar-16",
+      "solar-19",
+      "solar-22",
+      "solar-25",
+      "solar-28",
+      "solar-31",
+      "solar-34"
+    ],
+    "13": [
+      "solar-1",
+      "solar-4",
+      "solar-7",
+      "solar-9",
+      "solar-12",
+      "solar-15",
+      "solar-17",
+      "solar-20",
+      "solar-23",
+      "solar-26",
+      "solar-29",
+      "solar-31",
+      "solar-34"
+    ],
+    "14": [
+      "solar-1",
+      "solar-4",
+      "solar-6",
+      "solar-9",
+      "solar-11",
+      "solar-14",
+      "solar-16",
+      "solar-19",
+      "solar-21",
+      "solar-24",
+      "solar-26",
+      "solar-29",
+      "solar-31",
+      "solar-34"
+    ],
+    "15": [
+      "solar-1",
+      "solar-3",
+      "solar-6",
+      "solar-8",
+      "solar-10",
+      "solar-13",
+      "solar-15",
+      "solar-17",
+      "solar-20",
+      "solar-22",
+      "solar-25",
+      "solar-27",
+      "solar-29",
+      "solar-32",
+      "solar-34"
+    ],
+    "16": [
+      "solar-1",
+      "solar-3",
+      "solar-5",
+      "solar-8",
+      "solar-10",
+      "solar-12",
+      "solar-14",
+      "solar-16",
+      "solar-19",
+      "solar-21",
+      "solar-23",
+      "solar-25",
+      "solar-27",
+      "solar-30",
+      "solar-32",
+      "solar-34"
+    ],
+    "17": [
+      "solar-1",
+      "solar-3",
+      "solar-5",
+      "solar-7",
+      "solar-9",
+      "solar-11",
+      "solar-13",
+      "solar-15",
+      "solar-17",
+      "solar-20",
+      "solar-22",
+      "solar-24",
+      "solar-26",
+      "solar-28",
+      "solar-30",
+      "solar-32",
+      "solar-34"
+    ],
+    "18": [
+      "solar-1",
+      "solar-3",
+      "solar-5",
+      "solar-7",
+      "solar-9",
+      "solar-11",
+      "solar-13",
+      "solar-15",
+      "solar-17",
+      "solar-18",
+      "solar-20",
+      "solar-22",
+      "solar-24",
+      "solar-26",
+      "solar-28",
+      "solar-30",
+      "solar-32",
+      "solar-34"
+    ],
+    "19": [
+      "solar-1",
+      "solar-3",
+      "solar-5",
+      "solar-7",
+      "solar-8",
+      "solar-10",
+      "solar-12",
+      "solar-14",
+      "solar-16",
+      "solar-17",
+      "solar-19",
+      "solar-21",
+      "solar-23",
+      "solar-25",
+      "solar-27",
+      "solar-29",
+      "solar-30",
+      "solar-32",
+      "solar-34"
+    ],
+    "20": [
+      "solar-1",
+      "solar-3",
+      "solar-4",
+      "solar-6",
+      "solar-8",
+      "solar-10",
+      "solar-11",
+      "solar-13",
+      "solar-15",
+      "solar-17",
+      "solar-18",
+      "solar-20",
+      "solar-22",
+      "solar-24",
+      "solar-25",
+      "solar-27",
+      "solar-29",
+      "solar-31",
+      "solar-32",
+      "solar-34"
+    ],
+    "21": [
+      "solar-1",
+      "solar-3",
+      "solar-4",
+      "solar-6",
+      "solar-8",
+      "solar-9",
+      "solar-11",
+      "solar-13",
+      "solar-14",
+      "solar-16",
+      "solar-17",
+      "solar-19",
+      "solar-21",
+      "solar-22",
+      "solar-24",
+      "solar-26",
+      "solar-27",
+      "solar-29",
+      "solar-31",
+      "solar-32",
+      "solar-34"
+    ],
+    "22": [
+      "solar-1",
+      "solar-3",
+      "solar-4",
+      "solar-6",
+      "solar-7",
+      "solar-9",
+      "solar-10",
+      "solar-12",
+      "solar-14",
+      "solar-15",
+      "solar-17",
+      "solar-18",
+      "solar-20",
+      "solar-21",
+      "solar-23",
+      "solar-25",
+      "solar-26",
+      "solar-28",
+      "solar-29",
+      "solar-31",
+      "solar-32",
+      "solar-34"
+    ],
+    "23": [
+      "solar-1",
+      "solar-3",
+      "solar-4",
+      "solar-5",
+      "solar-7",
+      "solar-9",
+      "solar-10",
+      "solar-11",
+      "solar-13",
+      "solar-15",
+      "solar-16",
+      "solar-17",
+      "solar-19",
+      "solar-21",
+      "solar-22",
+      "solar-23",
+      "solar-25",
+      "solar-27",
+      "solar-28",
+      "solar-29",
+      "solar-31",
+      "solar-33",
+      "solar-34"
+    ],
+    "24": [
+      "solar-1",
+      "solar-2",
+      "solar-4",
+      "solar-5",
+      "solar-7",
+      "solar-8",
+      "solar-10",
+      "solar-11",
+      "solar-12",
+      "solar-14",
+      "solar-15",
+      "solar-17",
+      "solar-18",
+      "solar-20",
+      "solar-21",
+      "solar-23",
+      "solar-24",
+      "solar-25",
+      "solar-27",
+      "solar-28",
+      "solar-30",
+      "solar-31",
+      "solar-33",
+      "solar-34"
+    ]
+  },
+  "flags": {
+    "useImages": true,
+    "imgScaleWithLevel": false,
+    "imgTint": false
+  }
+}
