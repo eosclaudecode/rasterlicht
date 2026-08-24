@@ -1540,12 +1540,41 @@ function reportLoadResult() {
     console.warn('Rasterlicht: nicht ladbar:', failed.map(e => e.file + ' (' + e.error + ')'));
 }
 
-/* Zuordnung für eine bestimmte Stufenzahl übernehmen, falls hinterlegt. */
+/* In welche Richtung läuft die Bibliothek? Wird aus einer vorhandenen
+   Zuordnung abgelesen: Steht am dunklen Ende ein späteres Bild als am hellen,
+   ist die Reihenfolge umgekehrt. So bleibt eine selbst hergeleitete Belegung
+   in derselben Konvention wie die hinterlegten.                              */
+function libraryDirection() {
+    for (const key of Object.keys(allAssignments)) {
+        const a = allAssignments[key];
+        if (!Array.isArray(a) || a.length < 2) continue;
+        const first = library.findIndex(e => e.id === a[0]);
+        const last  = library.findIndex(e => e.id === a[a.length - 1]);
+        if (first >= 0 && last >= 0 && first !== last) return last < first ? -1 : 1;
+    }
+    return 1;
+}
+
+/* Zuordnung für eine Stufenzahl setzen. Ist keine hinterlegt, wird die
+   Bibliothek gleichmäßig über die Stufen verteilt — jede Stufenzahl
+   funktioniert damit, auch wenn das Manifest sie nicht kennt.               */
 function applyAssignment(levels) {
-    const asg = allAssignments[String(levels)];
-    if (!Array.isArray(asg)) return false;
     slots = new Array(MAX_LEVELS).fill(null);
-    asg.forEach((id, i) => { slots[i] = id || null; });
+
+    const asg = allAssignments[String(levels)];
+    if (Array.isArray(asg)) {
+        asg.forEach((id, i) => { slots[i] = id || null; });
+        return true;
+    }
+
+    if (!library.length) return false;
+    const n = library.length;
+    const dir = libraryDirection();
+    for (let i = 0; i < levels; i++) {
+        const t = levels > 1 ? i / (levels - 1) : 0;
+        const idx = dir > 0 ? Math.round(t * (n - 1)) : n - 1 - Math.round(t * (n - 1));
+        slots[i] = library[idx].id;
+    }
     return true;
 }
 
