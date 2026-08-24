@@ -615,7 +615,7 @@ body.admin .button-row .admin-only { display: block; }
             <div class="control-group">
                 <label for="levels">Helligkeitsstufen</label>
                 <div class="slider-container">
-                    <input type="range" id="levels" min="2" max="24" step="1" value="10" oninput="updateParam('levels', this.value)">
+                    <input type="range" id="levels" min="2" max="30" step="1" value="10" oninput="updateParam('levels', this.value)">
                     <span class="value-display" id="levels-value">10</span>
                 </div>
             </div>
@@ -965,6 +965,11 @@ body.admin .button-row .admin-only { display: block; }
             <button class="button" id="pubBtn" onclick="publishToRepo()">↑ Ins Repository veröffentlichen</button>
             <div class="progress" id="pubProgress" hidden><div></div></div>
             <div class="status-chip"><span class="dot" id="pub-dot"></span><span id="pub-status">Kein Token hinterlegt</span></div>
+            <button class="button ghost" onclick="previewAsVisitor()">Besucheransicht prüfen</button>
+            <div class="section-note">
+                Blendet Bibliothek und Admin aus, so wie fremde Besucher die Seite sehen.
+                Neu laden bringt beides zurück.
+            </div>
         </details>
 
         <!-- Export -->
@@ -1082,7 +1087,7 @@ body.admin .button-row .admin-only { display: block; }
 
 const MAX_SOURCES = 6;
 const MAX_PLANES  = 4;
-const MAX_LEVELS  = 24;
+const MAX_LEVELS  = 30;
 
 let params = {
     seed: 12345,
@@ -1800,6 +1805,15 @@ function saveToken() {
     }
 }
 
+/* Zeigt die Seite so, wie sie ohne Token aussieht — bis zum Neuladen. */
+function previewAsVisitor() {
+    document.body.classList.remove('admin');
+    document.querySelectorAll('details.control-section').forEach(d => {
+        if (d.classList.contains('admin-only')) d.open = false;
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 function forgetToken() {
     try { localStorage.removeItem('rl-gh'); } catch (e) {}
     document.getElementById('ghToken').value = '';
@@ -2358,10 +2372,13 @@ function serializeState() {
     const current = slots.slice(0, levels).map(x => x || '');
     const stored  = allAssignments[String(levels)] || [];
     if (current.join(',') !== stored.join(',')) {
-        out.push('sl=' + current.map(id => {
+        const idx = current.map(id => {
             const i = library.findIndex(e => e.id === id);
             return i < 0 ? '' : i;
-        }).join('.'));
+        });
+        // Nur mitschicken, wenn wirklich Bilder zugeordnet sind — sonst würde
+        // ein Link von einer Seite ohne Bibliothek die Belegung beim Empfänger leeren.
+        if (idx.some(x => x !== '')) out.push('sl=' + idx.join('.'));
     }
     return out.join('&');
 }
