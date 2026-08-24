@@ -508,6 +508,25 @@ dialog h4 {
 
 dialog .lib-grid { margin: 18px 0; max-height: 260px; overflow-y: auto; }
 
+.admin-only { display: none; }
+body.admin .admin-only { display: revert; }
+body.admin .button-row .admin-only { display: block; }
+
+.code-box {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--ink-2);
+    border: 1px solid transparent;
+    border-radius: 2px;
+    padding: 10px 12px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 10.5px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.code-box:focus { border-color: var(--accent); outline: none; }
+
 .progress { height: 2px; background: var(--line); overflow: hidden; }
 .progress > div { height: 100%; width: 0%; background: var(--accent); transition: width .15s linear; }
 
@@ -900,7 +919,7 @@ dialog .lib-grid { margin: 18px 0; max-height: 260px; overflow-y: auto; }
         </details>
 
         <!-- Bibliothek -->
-        <details class="control-section">
+        <details class="control-section admin-only">
             <summary>Bibliothek</summary>
             <div class="section-note" id="lib-note">
                 Die Bilder liegen als Dateien im Repository und sind für alle gleich.
@@ -916,7 +935,7 @@ dialog .lib-grid { margin: 18px 0; max-height: 260px; overflow-y: auto; }
         </details>
 
         <!-- Admin -->
-        <details class="control-section">
+        <details class="control-section admin-only">
             <summary>Admin</summary>
             <div class="section-note">
                 Mit einem GitHub-Token schreibt diese Seite Bilder und Zuordnung direkt ins Repository.
@@ -1010,6 +1029,21 @@ dialog .lib-grid { margin: 18px 0; max-height: 260px; overflow-y: auto; }
             <div class="section-note" id="export-note"></div>
         </details>
 
+        <!-- Teilen -->
+        <details class="control-section">
+            <summary>Teilen</summary>
+            <div class="section-note">
+                Der Link enthält alle Einstellungen samt Zeitpunkt. Wer ihn öffnet, sieht genau dieses Bild.
+            </div>
+            <div class="button-row">
+                <button class="button" onclick="copyShareLink()">↗ Link kopieren</button>
+                <button class="button ghost" onclick="copyShareCode()">Code</button>
+            </div>
+            <textarea id="shareCode" class="num code-box" rows="3" placeholder="Link oder Code hier einfügen…"></textarea>
+            <button class="button ghost" onclick="applyShareInput()">Einstellungen übernehmen</button>
+            <div class="status-chip"><span class="dot" id="share-dot"></span><span id="share-status">Noch nichts geteilt</span></div>
+        </details>
+
         <!-- Actions -->
         <details class="control-section" open>
             <summary>Aktionen</summary>
@@ -1033,7 +1067,7 @@ dialog .lib-grid { margin: 18px 0; max-height: 260px; overflow-y: auto; }
     <div class="section-note">Ein Bild aus der Bibliothek wählen oder ein neues hochladen.</div>
     <div class="lib-grid" id="picker-grid"></div>
     <div class="button-row">
-        <button class="button ghost" onclick="pickerUpload()">+ Hochladen</button>
+        <button class="button ghost admin-only" onclick="pickerUpload()">+ Hochladen</button>
         <button class="button ghost" onclick="pickerClear()">Slot leeren</button>
         <button class="button" onclick="document.getElementById('pickerDialog').close()">Fertig</button>
     </div>
@@ -1273,6 +1307,9 @@ function renderScene(g, w, h, t) {
             if (level > levels) level = levels;
 
             const tt = levels > 1 ? (level - 1) / (levels - 1) : 1;
+            // rampCache kann kurzzeitig eine andere Länge haben als levels,
+            // weil resizeCanvas sofort neu zeichnet — deshalb begrenzen.
+            const ramp = rampCache[Math.min(level - 1, rampCache.length - 1)];
             const px = offX + gx * cell + cell / 2;
             const py = offY + gy * cell + cell / 2;
 
@@ -1285,8 +1322,7 @@ function renderScene(g, w, h, t) {
                 }
                 const k = size / Math.max(img.width, img.height);
                 if (flags.imgTint) {
-                    const c = rampCache[level - 1];
-                    g.tint(red(c), green(c), blue(c));
+                    g.tint(red(ramp), green(ramp), blue(ramp));
                 } else {
                     g.noTint();
                 }
@@ -1294,7 +1330,7 @@ function renderScene(g, w, h, t) {
             } else {
                 const d = box * (params.dotMin + (params.dotMax - params.dotMin) * tt);
                 if (d <= 0.15) continue;
-                g.fill(rampCache[level - 1]);
+                g.fill(ramp);
                 g.circle(px, py, d);
             }
         }
@@ -1470,10 +1506,12 @@ async function initLibrary() {
         renderLibrary();
         buildSlots();
         reportLoadResult();
+        applyHashState();
     } catch (e) {
         const url = new URL(MANIFEST, location.href).href;
         setLibStatus('images.json nicht gefunden — erwartet unter ' + url, 'warn');
         console.warn('Rasterlicht: ' + MANIFEST + ' konnte nicht geladen werden.', e);
+        applyHashState();
     }
 }
 
@@ -1591,6 +1629,7 @@ function processFile(file) {
 }
 
 async function addFiles(fileList, assignTo) {
+    if (!document.body.classList.contains('admin')) return;
     const files = Array.from(fileList).slice(0, 40);
     for (let i = 0; i < files.length; i++) {
         setLibStatus('Verarbeite ' + (i + 1) + ' / ' + files.length + '…', null);
@@ -1640,6 +1679,7 @@ function renderLibrary() {
 }
 
 function removeFromLibrary(id) {
+    if (!document.body.classList.contains('admin')) return;
     library = library.filter(e => e.id !== id);
     slots = slots.map(s => (s === id ? null : s));
     renderLibrary();
@@ -2275,6 +2315,179 @@ async function exportFrameSequence() {
     btn.disabled = false;
 }
 
+
+/* ── Einstellungen teilen ─────────────────────────────────────────────────
+   Der gesamte Zustand passt in eine Zeichenkette: kurze Schlüssel, gerundete
+   Zahlen, im Adressfeld hinter dem Rautezeichen. Was dem Standard entspricht,
+   taucht gar nicht erst auf — deshalb bleiben die Links kurz.              */
+
+const SHARE_KEYS = {
+    seed:'sd', cols:'c', rows:'r', levels:'lv', gap:'gp', dotMin:'dn', dotMax:'dx',
+    profile:'pf', symmetry:'sy',
+    sourceCount:'sc', sourceFreq:'sf', sourceFalloff:'sa', sourceSpread:'sp',
+    planeCount:'pc', planeFreq:'pq', planeWeight:'pw', planeAngle:'pa', planeFan:'pn',
+    concWeight:'cw', concFreq:'cq', spiralArms:'ar',
+    noiseWeight:'nw', noiseScale:'ns',
+    contrast:'ct', gamma:'gm', vignette:'vg',
+    speed:'spd', standingDepth:'st', imgScale:'is'
+};
+const SHARE_FLAGS = ['standing', 'useImages', 'imgScaleWithLevel', 'imgTint'];
+const SHARE_COLORS = { bgColor:'kb', lowColor:'kl', midColor:'km', highColor:'kh' };
+
+const num = v => String(Math.round(v * 1000) / 1000);
+
+function serializeState() {
+    const out = [];
+    Object.entries(SHARE_KEYS).forEach(([k, short]) => {
+        if (params[k] !== defaultParams[k]) out.push(short + '=' + num(params[k]));
+    });
+    out.push('ph=' + num(phase));
+    if (!playing) out.push('pl=0');
+    if (aspectKey !== '1:1') out.push('as=' + aspectKey);
+    out.push('md=' + mode);
+
+    const bits = SHARE_FLAGS.map(f => (flags[f] ? '1' : '0')).join('');
+    if (bits !== SHARE_FLAGS.map(f => (defaultFlags[f] ? '1' : '0')).join('')) out.push('fl=' + bits);
+
+    Object.entries(SHARE_COLORS).forEach(([k, short]) => {
+        if (colors[k] !== defaultColors[k]) out.push(short + '=' + colors[k].replace('#', ''));
+    });
+
+    // Slots nur, wenn sie von der hinterlegten Zuordnung abweichen
+    const levels = Math.round(params.levels);
+    const current = slots.slice(0, levels).map(x => x || '');
+    const stored  = allAssignments[String(levels)] || [];
+    if (current.join(',') !== stored.join(',')) {
+        out.push('sl=' + current.map(id => {
+            const i = library.findIndex(e => e.id === id);
+            return i < 0 ? '' : i;
+        }).join('.'));
+    }
+    return out.join('&');
+}
+
+function applyState(str) {
+    if (!str) return false;
+    const inv = {};
+    Object.entries(SHARE_KEYS).forEach(([k, short]) => { inv[short] = k; });
+    const invColor = {};
+    Object.entries(SHARE_COLORS).forEach(([k, short]) => { invColor[short] = k; });
+
+    params = {...defaultParams};
+    flags  = {...defaultFlags};
+    colors = {...defaultColors};
+    let nextAspect = '1:1', nextMode = 'mixed', slotSpec = null, nextPhase = 0, nextPlaying = true;
+
+    str.split('&').forEach(pair => {
+        const i = pair.indexOf('=');
+        if (i < 0) return;
+        const key = pair.slice(0, i), val = pair.slice(i + 1);
+
+        if (inv[key]) { const v = parseFloat(val); if (!isNaN(v)) params[inv[key]] = v; }
+        else if (invColor[key]) { if (/^[0-9a-fA-F]{6}$/.test(val)) colors[invColor[key]] = '#' + val; }
+        else if (key === 'ph') { const v = parseFloat(val); if (!isNaN(v)) nextPhase = v; }
+        else if (key === 'as' && ASPECTS[val]) nextAspect = val;
+        else if (key === 'md' && ['radial','linear','mixed','concentric'].includes(val)) nextMode = val;
+        else if (key === 'fl') SHARE_FLAGS.forEach((f, n) => { flags[f] = val[n] === '1'; });
+        else if (key === 'sl') slotSpec = val;
+        else if (key === 'pl') nextPlaying = val !== '0';
+    });
+
+    // Rampe passend zur neuen Stufenzahl, bevor setAspect neu zeichnen lässt
+    rebuildRamp();
+
+    // setMode überschreibt Generator-Gewichte — deshalb Werte danach zurücksetzen
+    const keep = {...params};
+    aspectKey = nextAspect;
+    setMode(nextMode);
+    setAspect(nextAspect);
+    params = keep;
+    rebuildRamp();
+
+    if (slotSpec !== null) {
+        slots = new Array(MAX_LEVELS).fill(null);
+        slotSpec.split('.').forEach((idx, i) => {
+            const n = parseInt(idx, 10);
+            if (!isNaN(n) && library[n]) slots[i] = library[n].id;
+        });
+    } else {
+        applyAssignment(Math.round(params.levels));
+    }
+
+    syncControls();
+    initializeSystem();
+    phase = nextPhase;
+    syncPhaseSlider();
+    playing = nextPlaying;
+    document.getElementById('playBtn').textContent = playing ? '⏸ Pause' : '▶ Play';
+    buildSlots();
+    return true;
+}
+
+/* Ein Zustand in der Adresse wird nach dem Laden der Bibliothek übernommen,
+   damit geteilte Slot-Belegungen auf vorhandene Bilder treffen. */
+function applyHashState() {
+    const payload = location.hash.replace(/^#/, '');
+    if (!payload || !payload.includes('=')) return;
+    let ok = false;
+    try { ok = applyState(payload); }
+    catch (err) {
+        console.error('Rasterlicht: Zustand aus dem Link nicht anwendbar.', err);
+        setShareStatus('Link nicht lesbar — Standardeinstellungen aktiv', 'warn');
+        return;
+    }
+    if (ok) {
+        document.getElementById('shareCode').value = location.href;
+        setShareStatus('Einstellungen aus dem Link übernommen', 'ok');
+    }
+}
+
+function shareLink() {
+    return location.origin + location.pathname + '#' + serializeState();
+}
+
+async function copyText(text, statusText) {
+    try {
+        await navigator.clipboard.writeText(text);
+        setShareStatus(statusText, 'ok');
+    } catch (e) {
+        const box = document.getElementById('shareCode');
+        box.value = text;
+        box.select();
+        setShareStatus('Kopieren nicht erlaubt — Text ist markiert, bitte manuell kopieren', 'warn');
+    }
+}
+
+function setShareStatus(text, kind) {
+    document.getElementById('share-status').textContent = text;
+    document.getElementById('share-dot').className = 'dot' + (kind ? ' ' + kind : '');
+}
+
+function copyShareLink() {
+    const link = shareLink();
+    history.replaceState(null, '', '#' + serializeState());
+    document.getElementById('shareCode').value = link;
+    copyText(link, 'Link kopiert — ' + link.length + ' Zeichen');
+}
+
+function copyShareCode() {
+    const code = serializeState();
+    document.getElementById('shareCode').value = code;
+    copyText(code, 'Code kopiert — ' + code.length + ' Zeichen');
+}
+
+function applyShareInput() {
+    const raw = document.getElementById('shareCode').value.trim();
+    if (!raw) { setShareStatus('Nichts eingefügt', 'warn'); return; }
+    const payload = raw.includes('#') ? raw.slice(raw.indexOf('#') + 1) : raw;
+    if (applyState(payload)) {
+        history.replaceState(null, '', '#' + payload);
+        setShareStatus('Einstellungen übernommen', 'ok');
+    } else {
+        setShareStatus('Code nicht lesbar', 'warn');
+    }
+}
+
 /* ── Seed ─────────────────────────────────────────────────────────────── */
 function updateSeedDisplay() { document.getElementById('seed-input').value = params.seed; }
 
@@ -2291,11 +2504,8 @@ function randomSeedAndUpdate() {
     initializeSystem();
 }
 
-function resetParameters() {
-    params = {...defaultParams};
-    flags  = {...defaultFlags};
-    colors = {...defaultColors};
-
+/* Alle Bedienelemente auf den aktuellen Zustand bringen. */
+function syncControls() {
     Object.keys(params).forEach(k => {
         const el = document.getElementById(k);
         if (el) el.value = params[k];
@@ -2312,14 +2522,24 @@ function resetParameters() {
         const v = document.getElementById(k + '-value');
         if (v) v.textContent = colors[k];
     });
+    document.getElementById('aspect').value = aspectKey;
+    document.querySelectorAll('#modeSeg button').forEach(b =>
+        b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false'));
+    updateSeedDisplay();
+    updateExportNote();
+}
+
+function resetParameters() {
+    params = {...defaultParams};
+    flags  = {...defaultFlags};
+    colors = {...defaultColors};
 
     playing = true;
     document.getElementById('playBtn').textContent = '⏸ Pause';
     document.getElementById('aspect').value = '1:1';
     setAspect('1:1');
     setMode('mixed');
-    updateSeedDisplay();
-    updateExportNote();
+    syncControls();
     initializeSystem();
     buildSlots();
 }
@@ -2339,6 +2559,13 @@ function resetParameters() {
         pendingFiles = null;
         e.target.value = '';
     });
+
+    // Admin-Ansicht: über ?admin=1 oder wenn in diesem Browser ein Token liegt
+    let hasToken = false;
+    try { hasToken = !!JSON.parse(localStorage.getItem('rl-gh') || 'null'); } catch (e) {}
+    if (new URLSearchParams(location.search).has('admin') || hasToken) {
+        document.body.classList.add('admin');
+    }
 
     restoreToken();
     updateExportNote();
