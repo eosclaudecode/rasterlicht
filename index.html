@@ -1030,10 +1030,18 @@ body.admin .button-row .admin-only { display: block; }
                 <input type="checkbox" id="loopExport" onchange="setLoopExport(this.checked)">
                 <label for="loopExport">Nahtlose Schleife</label>
             </div>
+            <div class="control-group" id="loopsGroup" hidden>
+                <label for="vidLoops">Durchläufe</label>
+                <div class="slider-container">
+                    <input type="range" id="vidLoops" min="1" max="12" step="1" value="1" oninput="document.getElementById('vidLoops-value').textContent = this.value; updateExportNote();">
+                    <span class="value-display" id="vidLoops-value">1</span>
+                </div>
+            </div>
             <div class="section-note" id="loop-note">
-                Die Schleife rastet die Laufraten auf Viertelschritte ein, damit das Feld
-                nach einer berechenbaren Länge exakt wieder am Anfang steht. Das gilt auch
-                für die Vorschau — was du siehst, ist was du bekommst.
+                Die Schleife rastet die Laufraten ein, damit das Feld nach einer berechenbaren
+                Länge exakt wieder am Anfang steht — auch in der Vorschau. Die Aufzeichnung
+                läuft in Echtzeit und kann unter Last einzelne Frames verwerfen; die Naht
+                bleibt davon unberührt, für bildgenaue Ausgabe die PNG-Sequenz nehmen.
             </div>
             <div class="control-group" id="stepGroup" hidden>
                 <label for="vidStep">Phasen-Schritt pro Frame</label>
@@ -2165,7 +2173,7 @@ function stepPerFrame(fps) {
     return params.speed > 0 ? params.speed * PHASE_PER_SECOND / fps : 0;
 }
 
-/* Framezahl, nach der die Schleife exakt schließt. */
+/* Framezahl eines einzelnen Durchlaufs — danach schließt die Schleife exakt. */
 function loopFrames(fps) {
     const step = stepPerFrame(fps);
     if (step <= 0) return null;
@@ -2173,10 +2181,25 @@ function loopFrames(fps) {
     return (frames >= 2 && frames <= 3600) ? frames : null;
 }
 
+function loopRepeats() {
+    const el = document.getElementById('vidLoops');
+    return el ? Math.max(1, parseInt(el.value) || 1) : 1;
+}
+
+/* Phasen-Schritt je Frame. In der Schleife aus der Periode abgeleitet, damit
+   ein Durchlauf exakt aufgeht — unabhängig von der Zahl der Durchläufe. */
+function exportStep(fps) {
+    if (flags.loopable) {
+        const base = loopFrames(fps);
+        if (base) return loopPeriod() / base;
+    }
+    return stepPerFrame(fps);
+}
+
 function setLoopExport(on) {
     flags.loopable = on;
-    const framesEl = document.getElementById('vidFrames');
-    framesEl.disabled = on;
+    document.getElementById('vidFrames').disabled = on;
+    document.getElementById('loopsGroup').hidden = !on;
     if (on) initializeSystem();
     updateExportNote();
 }
@@ -2198,9 +2221,17 @@ function updateExportNote() {
 
     let extra = '';
     if (flags.loopable) {
-        const lf = loopFrames(fps);
-        extra = lf ? ' · Schleife: ' + lf + ' Frames = ' + (lf / fps).toFixed(1) + ' s'
-                   : ' · Schleife bei dieser Geschwindigkeit nicht berechenbar';
+        const base = loopFrames(fps);
+        const reps = loopRepeats();
+        if (!base) {
+            extra = ' · Schleife bei dieser Geschwindigkeit nicht berechenbar';
+        } else if (reps === 1) {
+            extra = ' · Schleife: ' + base + ' Frames = ' + (base / fps).toFixed(1) + ' s';
+        } else {
+            extra = ' · Schleife: ' + base + ' × ' + reps + ' = ' + (base * reps) +
+                    ' Frames = ' + (base * reps / fps).toFixed(1) + ' s';
+            if (base * reps > 3600) extra += ' (auf 3600 Frames begrenzt)';
+        }
     }
     if (fmt === 'png') extra += ' · ' + frames + ' Einzelbilder im ZIP';
     else if (videoSupport && !videoSupport.h264 && fmt !== 'webm')
@@ -2213,8 +2244,8 @@ function updateExportNote() {
 /* Wie viele Frames exportiert werden: in der Schleife abgeleitet, sonst der Regler. */
 function exportFrameCount(fps) {
     if (flags.loopable) {
-        const lf = loopFrames(fps);
-        if (lf) return lf;
+        const base = loopFrames(fps);
+        if (base) return Math.min(3600, base * loopRepeats());
     }
     return parseInt(document.getElementById('vidFrames').value);
 }
@@ -2344,6 +2375,25 @@ async function probeVideoSupport() {
     return result;
 }
 
+/* Spieldauer der Aufzeichnung messen — zeigt, ob der Rechner mitgekommen ist. */
+function measureDuration(blob) {
+    return new Promise(resolve => {
+        const v = document.createElement('video');
+        const url = URL.createObjectURL(blob);
+        let done = false;
+        const finish = d => { if (done) return; done = true; URL.revokeObjectURL(url); resolve(d); };
+        v.preload = 'metadata';
+        v.onloadedmetadata = () => {
+            if (isFinite(v.duration) && v.duration > 0) return finish(v.duration);
+            v.currentTime = 1e6;   // WebM ohne Dauer im Kopf: ans Ende spulen
+            v.ontimeupdate = () => { if (isFinite(v.duration)) finish(v.duration); };
+        };
+        v.onerror = () => finish(null);
+        setTimeout(() => finish(null), 4000);
+        v.src = url;
+    });
+}
+
 async function exportVideo() {
     const fmt = document.getElementById('vidFormat').value;
     if (fmt === 'png') return exportFrameSequence();
@@ -2366,7 +2416,7 @@ async function exportVideo() {
     const [w, h]  = aspectSize(parseInt(document.getElementById('vidRes').value));
     const fps     = parseInt(document.getElementById('vidFps').value);
     const frames  = exportFrameCount(fps);
-    const step    = flags.loopable ? loopPeriod() / frames : stepPerFrame(fps);
+    const step    = exportStep(fps);
     const ext     = fmt === 'webm' ? 'webm' : fmt;
 
     btn.disabled = true;
@@ -2396,18 +2446,35 @@ async function exportVideo() {
             const t0 = performance.now();
             renderScene(g, w, h, start + i * step);
             track.requestFrame();
+            // dem Encoder einen Bildaufbau Zeit lassen, sonst verwirft er Frames
+            await new Promise(r => requestAnimationFrame(r));
             bar.firstElementChild.style.width = ((i + 1) / frames * 100) + '%';
             note.textContent = 'Frame ' + (i + 1) + ' / ' + frames;
             const wait = interval - (performance.now() - t0);
-            await new Promise(r => setTimeout(r, wait > 0 ? wait : 0));
+            if (wait > 0) await new Promise(r => setTimeout(r, wait));
         }
 
         rec.stop();
         await done;
         const blob = new Blob(chunks, { type: mime });
         const mb = blob.size / 1048576;
+
+        /* Die Aufzeichnung läuft in Echtzeit: Konnte der Rechner nicht mithalten,
+           ist die Datei länger als vorgesehen und damit langsamer als die Vorschau.
+           Einzelne verworfene Frames verkürzen sie dagegen nicht — und sie stören
+           die Naht der Schleife nicht, weil alle Frames innerhalb einer Periode
+           liegen. */
+        const soll = frames / fps;
+        const ist = await measureDuration(blob);
+        let hinweis = '';
+        if (ist && ist > soll * 1.12) {
+            hinweis = ' · lief ' + (ist / soll).toFixed(1) + '× langsamer als die Vorschau — ' +
+                      'kleinere Auflösung oder PNG-Sequenz nehmen';
+        }
+
         await offerFile('rasterlicht-' + params.seed + '-' + frames + 'f.' + ext, blob);
-        note.textContent = ext.toUpperCase() + ' gespeichert — ' + w + ' × ' + h + ', ' + mb.toFixed(1) + ' MB';
+        note.textContent = ext.toUpperCase() + ' gespeichert — ' + w + ' × ' + h + ', ' +
+                           mb.toFixed(1) + ' MB' + hinweis;
     } catch (err) {
         note.textContent = 'Video-Export fehlgeschlagen: ' + (err && err.message ? err.message : err);
     }
@@ -2430,7 +2497,7 @@ async function exportFrameSequence() {
     const [w, h] = aspectSize(parseInt(document.getElementById('vidRes').value));
     const fps    = parseInt(document.getElementById('vidFps').value);
     const frames = exportFrameCount(fps);
-    const step   = flags.loopable ? loopPeriod() / frames : stepPerFrame(fps);
+    const step   = exportStep(fps);
 
     btn.disabled = true;
     bar.hidden = false;
@@ -2697,6 +2764,10 @@ function resetParameters() {
 
     playing = true;
     document.getElementById('playBtn').textContent = '⏸ Pause';
+    document.getElementById('loopExport').checked = false;
+    document.getElementById('vidLoops').value = 1;
+    document.getElementById('vidLoops-value').textContent = '1';
+    setLoopExport(false);
     document.getElementById('aspect').value = '1:1';
     setAspect('1:1');
     setMode('mixed');
