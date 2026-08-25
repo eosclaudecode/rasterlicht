@@ -1022,10 +1022,23 @@ body.admin .button-row .admin-only { display: block; }
                     <option value="60">60 fps</option>
                 </select>
             </div>
-            <div class="control-group">
+            <div class="check-group">
+                <input type="checkbox" id="linkSpeed" checked onchange="updateExportNote()">
+                <label for="linkSpeed">Geschwindigkeit der Vorschau übernehmen</label>
+            </div>
+            <div class="check-group">
+                <input type="checkbox" id="loopExport" onchange="setLoopExport(this.checked)">
+                <label for="loopExport">Nahtlose Schleife</label>
+            </div>
+            <div class="section-note" id="loop-note">
+                Die Schleife rastet die Laufraten auf Viertelschritte ein, damit das Feld
+                nach einer berechenbaren Länge exakt wieder am Anfang steht. Das gilt auch
+                für die Vorschau — was du siehst, ist was du bekommst.
+            </div>
+            <div class="control-group" id="stepGroup" hidden>
                 <label for="vidStep">Phasen-Schritt pro Frame</label>
                 <div class="slider-container">
-                    <input type="range" id="vidStep" min="0.002" max="0.2" step="0.002" value="0.02" oninput="document.getElementById('vidStep-value').textContent = this.value">
+                    <input type="range" id="vidStep" min="0.002" max="0.2" step="0.002" value="0.02" oninput="document.getElementById('vidStep-value').textContent = this.value; updateExportNote();">
                     <span class="value-display" id="vidStep-value">0.02</span>
                 </div>
             </div>
@@ -1088,6 +1101,9 @@ body.admin .button-row .admin-only { display: block; }
 const MAX_SOURCES = 6;
 const MAX_PLANES  = 4;
 const MAX_LEVELS  = 30;
+/* Phaseneinheiten je Sekunde bei Geschwindigkeit 1 — die eine Zahl, die
+   Vorschau und Export aneinander bindet. */
+const PHASE_PER_SECOND = 0.6;
 
 let params = {
     seed: 12345,
@@ -1103,7 +1119,7 @@ let params = {
     imgScale: 1.0
 };
 
-let flags = { standing: false, useImages: true, imgScaleWithLevel: false, imgTint: false };
+let flags = { standing: false, loopable: false, useImages: true, imgScaleWithLevel: false, imgTint: false };
 
 let colors = { bgColor: '#000000', lowColor: '#3b3a54', midColor: '#d97757', highColor: '#faf9f5' };
 
@@ -1117,6 +1133,7 @@ let phase = 0, playing = true;
 let rampCache = [];
 let bgCol;
 let exporting = false;
+let currentLoopT = 1;   // Periodenlänge, je Bild einmal berechnet
 
 /* Bibliothek: id → {id, name, file, url, img}  |  slots: Index (Stufe-1) → id */
 let library = [];
@@ -1196,6 +1213,32 @@ function rebuildRamp() {
 }
 
 /* Skalares Feld an normalisierter Position (nx, ny) ∈ [-1, 1] */
+/* Für eine nahtlose Schleife müssen alle Laufraten ein gemeinsames Vielfaches
+   haben. Dafür rasten sie auf Viertelschritte ein — hörbar wenig Änderung,
+   aber die Periode wird endlich und berechenbar.                            */
+function rateFor(r) {
+    if (!flags.loopable) return r;
+    const sign = r < 0 ? -1 : 1;
+    return sign * Math.max(0.5, Math.round(Math.abs(r) * 2) / 2);
+}
+
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+
+/* Kürzeste Phasenlänge, nach der sich das gesamte Feld wiederholt. */
+function loopPeriod() {
+    const rates = [];
+    const nSrc = Math.round(params.sourceCount);
+    for (let i = 0; i < nSrc; i++) rates.push(rateFor(sources[i].rate));
+    if (params.planeWeight > 0) {
+        const nPl = Math.round(params.planeCount);
+        for (let i = 0; i < nPl; i++) rates.push(rateFor(planes[i].rate));
+    }
+    if (params.concWeight > 0) rates.push(rateFor(0.9));
+    if (!rates.length) return 1;
+    const ints = rates.map(r => Math.round(Math.abs(r) * 2));
+    return 2 / ints.reduce((a, b) => gcd(a, b));
+}
+
 /* Ein Wellenbeitrag.
    Laufende Welle:  f(x - vt)          — das Muster wandert.
    Stehende Welle:  f(x) · cos(2π·vt)  — die Knoten bleiben stehen,
@@ -1230,7 +1273,7 @@ function fieldValue(nx, ny, t) {
         const dy = ny - s.uy * params.sourceSpread;
         const d = Math.sqrt(dx * dx + dy * dy);
         const amp = 1 / (1 + params.sourceFalloff * d * 2.2);
-        sum += amp * contrib(d * params.sourceFreq, s.phi / TWO_PI, s.rate, t);
+        sum += amp * contrib(d * params.sourceFreq, s.phi / TWO_PI, rateFor(s.rate), t);
         wsum += amp;
     }
 
@@ -1243,7 +1286,7 @@ function fieldValue(nx, ny, t) {
             const ang = base + (nPl > 1 ? (i / nPl) * fan : 0) + p.off * fan * 0.12;
             const proj = nx * Math.cos(ang) + ny * Math.sin(ang);
             sum += params.planeWeight *
-                contrib(proj * params.planeFreq * p.fMul, p.phi / TWO_PI, p.rate, t);
+                contrib(proj * params.planeFreq * p.fMul, p.phi / TWO_PI, rateFor(p.rate), t);
             wsum += params.planeWeight;
         }
     }
@@ -1252,12 +1295,21 @@ function fieldValue(nx, ny, t) {
         const r = Math.sqrt(nx * nx + ny * ny);
         const a = Math.atan2(ny, nx);
         sum += params.concWeight *
-            contrib(r * params.concFreq, params.spiralArms * a / TWO_PI, 0.9, t);
+            contrib(r * params.concFreq, params.spiralArms * a / TWO_PI, rateFor(0.9), t);
         wsum += params.concWeight;
     }
 
     if (params.noiseWeight > 0) {
-        const n = noise((nx + 1.5) * params.noiseScale, (ny + 1.5) * params.noiseScale, t * 0.12);
+        let n;
+        if (flags.loopable) {
+            // Kreisbahn durch das Rauschfeld: nach einer Periode ist der
+            // Ausgangspunkt exakt wieder erreicht.
+            const ang = TWO_PI * (t / currentLoopT);
+            n = noise((nx + 1.5) * params.noiseScale + 0.6 * Math.cos(ang),
+                      (ny + 1.5) * params.noiseScale + 0.6 * Math.sin(ang), 0);
+        } else {
+            n = noise((nx + 1.5) * params.noiseScale, (ny + 1.5) * params.noiseScale, t * 0.12);
+        }
         sum += params.noiseWeight * (n * 2 - 1) * 1.6;
         wsum += params.noiseWeight;
     }
@@ -1266,19 +1318,31 @@ function fieldValue(nx, ny, t) {
 }
 
 /* Rendert die Szene in ein beliebiges Ziel: window (Hauptcanvas) oder p5.Graphics */
+/* Rastermaße für eine Zielfläche — dieselbe Rechnung wie beim Zeichnen. */
+function gridMetrics(w, h) {
+    const cols = Math.round(params.cols);
+    const rows = Math.round(params.rows);
+    const cell = Math.min(w / cols, h / rows);
+    return {
+        cols, rows, cell,
+        offX: (w - cell * cols) / 2,
+        offY: (h - cell * rows) / 2,
+        halfC: (cols - 1) / 2,
+        halfR: (rows - 1) / 2,
+        norm: Math.max((cols - 1) / 2, (rows - 1) / 2) || 1
+    };
+}
+
 function renderScene(g, w, h, t) {
+    if (flags.loopable) currentLoopT = loopPeriod();
     g.background(bgCol);
 
-    const cols   = Math.round(params.cols);
-    const rows   = Math.round(params.rows);
     const levels = Math.round(params.levels);
-    const cell   = Math.min(w / cols, h / rows);
-    const box    = cell * (1 - params.gap);
-    const offX   = (w - cell * cols) / 2;
-    const offY   = (h - cell * rows) / 2;
-
-    const halfC = (cols - 1) / 2, halfR = (rows - 1) / 2;
-    const norm  = Math.max(halfC, halfR) || 1;
+    const m = gridMetrics(w, h);
+    const cols = m.cols, rows = m.rows, cell = m.cell;
+    const offX = m.offX, offY = m.offY;
+    const halfC = m.halfC, halfR = m.halfR, norm = m.norm;
+    const box = cell * (1 - params.gap);
 
     g.noStroke();
     g.ellipseMode(CENTER);
@@ -1347,7 +1411,10 @@ function draw() {
     if (exporting) return;
     renderScene(window, width, height, phase);
     if (playing && params.speed > 0) {
-        phase += params.speed * 0.01;
+        // Zeitbasiert: unabhängig von der Bildwiederholrate des Monitors.
+        // 0.6 Phaseneinheiten je Sekunde bei Geschwindigkeit 1.
+        const dt = Math.min(deltaTime || 16.7, 100) / 1000;
+        phase += params.speed * PHASE_PER_SECOND * dt;
         if (phase > 100) phase -= 100;
         syncPhaseSlider();
     }
@@ -1358,6 +1425,7 @@ function updateParam(name, value) {
     params[name] = parseFloat(value);
     const el = document.getElementById(name + '-value');
     if (el) el.textContent = value;
+    if (name === 'speed') updateExportNote();
     if (name === 'levels') {
         rebuildRamp();
         applyAssignment(Math.round(params.levels));
@@ -2088,23 +2156,67 @@ function setAspect(key) {
     updateExportNote();
 }
 
+/* Phasen-Schritt je Frame, so dass die Ausgabe genauso schnell läuft wie
+   die Vorschau: dort wandert die Phase um speed × 0.6 je Sekunde. */
+function stepPerFrame(fps) {
+    if (!document.getElementById('linkSpeed').checked) {
+        return parseFloat(document.getElementById('vidStep').value);
+    }
+    return params.speed > 0 ? params.speed * PHASE_PER_SECOND / fps : 0;
+}
+
+/* Framezahl, nach der die Schleife exakt schließt. */
+function loopFrames(fps) {
+    const step = stepPerFrame(fps);
+    if (step <= 0) return null;
+    const frames = Math.round(loopPeriod() / step);
+    return (frames >= 2 && frames <= 3600) ? frames : null;
+}
+
+function setLoopExport(on) {
+    flags.loopable = on;
+    const framesEl = document.getElementById('vidFrames');
+    framesEl.disabled = on;
+    if (on) initializeSystem();
+    updateExportNote();
+}
+
 function updateExportNote() {
     const note = document.getElementById('export-note');
     if (!note) return;
     const [pw, ph] = aspectSize(parseInt(document.getElementById('exportRes').value));
     const [vw, vh] = aspectSize(parseInt(document.getElementById('vidRes').value));
-    const frames = parseInt(document.getElementById('vidFrames').value);
     const fps    = parseInt(document.getElementById('vidFps').value);
     const fmt    = document.getElementById('vidFormat').value;
+    const frames = exportFrameCount(fps);
     const secs   = (frames / fps).toFixed(1);
 
+    document.getElementById('stepGroup').hidden = document.getElementById('linkSpeed').checked;
+    const fEl = document.getElementById('vidFrames');
+    document.getElementById('vidFrames-value').textContent = frames;
+    if (!fEl.disabled) fEl.value = Math.min(600, Math.max(12, frames));
+
     let extra = '';
-    if (fmt === 'png') extra = ' · ' + frames + ' Einzelbilder im ZIP';
+    if (flags.loopable) {
+        const lf = loopFrames(fps);
+        extra = lf ? ' · Schleife: ' + lf + ' Frames = ' + (lf / fps).toFixed(1) + ' s'
+                   : ' · Schleife bei dieser Geschwindigkeit nicht berechenbar';
+    }
+    if (fmt === 'png') extra += ' · ' + frames + ' Einzelbilder im ZIP';
     else if (videoSupport && !videoSupport.h264 && fmt !== 'webm')
-        extra = ' · H.264 kann dieser Browser nicht — bitte WebM oder PNG-Sequenz';
+        extra += ' · H.264 kann dieser Browser nicht — bitte WebM oder PNG-Sequenz';
 
     note.textContent = 'PNG ' + pw + ' × ' + ph + '  ·  Video ' + vw + ' × ' + vh +
                        ', ' + secs + ' s' + extra;
+}
+
+/* Wie viele Frames exportiert werden: in der Schleife abgeleitet, sonst der Regler. */
+function exportFrameCount(fps) {
+    if (flags.loopable) {
+        const lf = loopFrames(fps);
+        if (lf) return lf;
+    }
+    return parseInt(document.getElementById('vidFrames').value);
 }
 
 /* ── Export ───────────────────────────────────────────────────────────── */
@@ -2252,9 +2364,9 @@ async function exportVideo() {
     }
 
     const [w, h]  = aspectSize(parseInt(document.getElementById('vidRes').value));
-    const frames  = parseInt(document.getElementById('vidFrames').value);
     const fps     = parseInt(document.getElementById('vidFps').value);
-    const step    = parseFloat(document.getElementById('vidStep').value);
+    const frames  = exportFrameCount(fps);
+    const step    = flags.loopable ? loopPeriod() / frames : stepPerFrame(fps);
     const ext     = fmt === 'webm' ? 'webm' : fmt;
 
     btn.disabled = true;
@@ -2316,8 +2428,9 @@ async function exportFrameSequence() {
     const note = document.getElementById('export-note');
 
     const [w, h] = aspectSize(parseInt(document.getElementById('vidRes').value));
-    const frames = parseInt(document.getElementById('vidFrames').value);
-    const step   = parseFloat(document.getElementById('vidStep').value);
+    const fps    = parseInt(document.getElementById('vidFps').value);
+    const frames = exportFrameCount(fps);
+    const step   = flags.loopable ? loopPeriod() / frames : stepPerFrame(fps);
 
     btn.disabled = true;
     bar.hidden = false;
@@ -2374,7 +2487,9 @@ const SHARE_KEYS = {
     contrast:'ct', gamma:'gm', vignette:'vg',
     speed:'spd', standingDepth:'st', imgScale:'is'
 };
-const SHARE_FLAGS = ['standing', 'useImages', 'imgScaleWithLevel', 'imgTint'];
+/* Neue Schalter hinten anhängen — ältere Codes bleiben damit gültig und
+   lassen die neuen auf ihrem Standardwert. */
+const SHARE_FLAGS = ['standing', 'useImages', 'imgScaleWithLevel', 'imgTint', 'loopable'];
 const SHARE_COLORS = { bgColor:'kb', lowColor:'kl', midColor:'km', highColor:'kh' };
 
 const num = v => String(Math.round(v * 1000) / 1000);
@@ -2434,7 +2549,7 @@ function applyState(str) {
         else if (key === 'ph') { const v = parseFloat(val); if (!isNaN(v)) nextPhase = v; }
         else if (key === 'as' && ASPECTS[val]) nextAspect = val;
         else if (key === 'md' && ['radial','linear','mixed','concentric'].includes(val)) nextMode = val;
-        else if (key === 'fl') SHARE_FLAGS.forEach((f, n) => { flags[f] = val[n] === '1'; });
+        else if (key === 'fl') SHARE_FLAGS.forEach((f, n) => { if (n < val.length) flags[f] = val[n] === '1'; });
         else if (key === 'sl') slotSpec = val;
         else if (key === 'pl') nextPlaying = val !== '0';
     });
